@@ -82,10 +82,27 @@ const updateEvent = catchAsync(async (req, res) => {
      });
 });
 
+const deleteEvent = catchAsync(async (req, res) => {
+     const { id } = req.params;
+     const user = req.user;
+     if (!user) {
+          throw new AppError(status.UNAUTHORIZED, "Unauthorized");
+     }
+
+     await EventService.deleteEvent(id as string, user);
+
+     sendResponse(res, {
+          httpStatusCode: status.OK,
+          success: true,
+          message: "Event deleted successfully",
+     });
+});
+
 export const EventController = {
      createEvent,
      getAllEvents,
      getSingleEvent,
      getMyEvents,
      updateEvent,
+     deleteEvent,
 };

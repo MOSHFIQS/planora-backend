@@ -14,5 +14,6 @@ router.get("/me/events", checkAuth(Role.USER, Role.ADMIN), EventController.getMy
 
 // Update/Delete — Organizer or Admin
 router.patch("/:id", checkAuth(Role.USER, Role.ADMIN), EventController.updateEvent);
+router.delete("/:id", checkAuth(Role.USER, Role.ADMIN), EventController.deleteEvent);
 
 export const EventRoutes = router;

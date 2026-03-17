@@ -80,10 +80,25 @@ const updateEvent = async (
   });
 };
 
+const deleteEvent = async (id: string, user: IRequestUser) => {
+  const event = await prisma.event.findUnique({ where: { id } });
+
+  if (!event) throw new AppError(status.NOT_FOUND, "Event not found");
+
+  if (event.organizerId !== user.userId && user.role !== Role.ADMIN) {
+    throw new AppError(status.FORBIDDEN, "Not authorized");
+  }
+
+  await prisma.event.delete({
+    where: { id },
+  });
+};
+
 export const EventService = {
      createEvent,
      getAllEvents,
      getSingleEvent,
      getMyEvents,
-     updateEvent
+     updateEvent,
+     deleteEvent
 };

@@ -1,0 +1,20 @@
+model Invitation {
+  id          String   @id @default(cuid())
+
+  eventId     String
+  userId      String
+
+  status      InvitationStatus @default(PENDING)
+
+  createdAt   DateTime @default(now())
+
+  event       Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user        User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  payment     Payment[]
+
+  @@unique([eventId, userId])   // prevent duplicate invites
+  @@index([eventId])
+  @@index([status])
+  @@map("invitation")
+}

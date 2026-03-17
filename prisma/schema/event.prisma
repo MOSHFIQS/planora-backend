@@ -1,0 +1,26 @@
+model Event {
+     id          String          @id @default(cuid())
+     title       String
+     description String
+     venue       String
+     dateTime    DateTime
+     visibility  EventVisibility
+     fee         Float           @default(0)
+
+     organizerId String
+     organizer   User   @relation("OrganizerEvents", fields: [organizerId], references: [id])
+
+     image String? // Add this field for event images
+
+     createdAt DateTime @default(now())
+     updatedAt DateTime @updatedAt
+
+     participations Participation[]
+     invitations    Invitation[]
+     reviews        Review[]
+
+     @@index([organizerId])
+     @@index([visibility])
+     @@index([dateTime])
+     @@map("event")
+}

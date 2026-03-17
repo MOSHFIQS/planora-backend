@@ -1,0 +1,21 @@
+model Participation {
+  id          String   @id @default(cuid())
+
+  userId      String
+  eventId     String
+
+  status      ParticipationStatus @default(PENDING)
+
+  createdAt   DateTime @default(now())
+
+  user        User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event       Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  payment     Payment[]
+
+  @@unique([userId, eventId])   // one join per user per event
+  @@index([eventId])
+  @@index([status])
+  @@map("participation")
+}
+

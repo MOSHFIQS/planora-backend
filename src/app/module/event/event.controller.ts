@@ -98,6 +98,17 @@ const deleteEvent = catchAsync(async (req, res) => {
      });
 });
 
+const getAllEventsAdmin = catchAsync(async (req, res) => {
+     const result = await EventService.getAllEventsAdmin();
+
+     sendResponse(res, {
+          httpStatusCode: status.OK,
+          success: true,
+          message: "All events fetched (Admin)",
+          data: result,
+     });
+});
+
 export const EventController = {
      createEvent,
      getAllEvents,
@@ -105,4 +116,5 @@ export const EventController = {
      getMyEvents,
      updateEvent,
      deleteEvent,
+     getAllEventsAdmin,
 };

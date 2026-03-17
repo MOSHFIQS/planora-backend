@@ -16,4 +16,7 @@ router.get("/me/events", checkAuth(Role.USER, Role.ADMIN), EventController.getMy
 router.patch("/:id", checkAuth(Role.USER, Role.ADMIN), EventController.updateEvent);
 router.delete("/:id", checkAuth(Role.USER, Role.ADMIN), EventController.deleteEvent);
 
+// Admin only
+router.get("/admin/all", checkAuth(Role.ADMIN), EventController.getAllEventsAdmin);
+
 export const EventRoutes = router;

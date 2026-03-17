@@ -94,11 +94,20 @@ const deleteEvent = async (id: string, user: IRequestUser) => {
   });
 };
 
+const getAllEventsAdmin = async () => {
+  return prisma.event.findMany({
+    include: {
+      organizer: true,
+    },
+  });
+};
+
 export const EventService = {
      createEvent,
      getAllEvents,
      getSingleEvent,
      getMyEvents,
      updateEvent,
-     deleteEvent
+     deleteEvent,
+     getAllEventsAdmin
 };

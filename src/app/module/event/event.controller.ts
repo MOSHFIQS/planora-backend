@@ -31,7 +31,21 @@ const getAllEvents = catchAsync(async (req, res) => {
   });
 });
 
+const getSingleEvent = catchAsync(async (req, res) => {
+  const { id } = req.params;
+
+  const result = await EventService.getSingleEvent(id as string);
+
+  sendResponse(res, {
+    httpStatusCode: status.OK,
+    success: true,
+    message: "Event fetched successfully",
+    data: result,
+  });
+});
+
 export const EventController = {
      createEvent,
-     getAllEvents
+     getAllEvents,
+     getSingleEvent
 };

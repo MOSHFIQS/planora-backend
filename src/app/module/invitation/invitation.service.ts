@@ -130,7 +130,7 @@ const getEventInvitations = async (
 };
 
 
-// 👤 Get my invitations
+//  Get my invitations
 const getMyInvitations = async (user: IRequestUser) => {
 
   return prisma.invitation.findMany({

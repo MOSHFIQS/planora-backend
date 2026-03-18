@@ -1,0 +1,42 @@
+import { Router } from "express";
+import { ReviewController } from "./review.controller";
+import { checkAuth } from "../../middleware/checkAuth";
+import { Role } from "../../../generated/prisma/enums";
+
+const router = Router();
+
+
+// ⭐ User actions
+router.post(
+  "/",
+  checkAuth(Role.USER, Role.ADMIN),
+  ReviewController.createReview
+);
+
+router.patch(
+  "/:id",
+  checkAuth(Role.USER, Role.ADMIN),
+  ReviewController.updateReview
+);
+
+router.delete(
+  "/:id",
+  checkAuth(Role.USER, Role.ADMIN),
+  ReviewController.deleteReview
+);
+
+router.get(
+  "/my",
+  checkAuth(Role.USER, Role.ADMIN),
+  ReviewController.getMyReviews
+);
+
+
+// 🌐 Public
+router.get(
+  "/event/:eventId",
+  ReviewController.getEventReviews
+);
+
+
+export const ReviewRoutes = router;

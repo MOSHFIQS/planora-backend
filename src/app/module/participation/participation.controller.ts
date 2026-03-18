@@ -54,8 +54,41 @@ const getMyEvents = catchAsync(async (req, res) => {
      });
 });
 
+// const getEventParticipants = catchAsync(async (req, res) => {
+
+//   const { eventId } = req.params;
+
+//   const result = await ParticipationService.getEventParticipants(eventId as string);
+
+//   sendResponse(res, {
+//     httpStatusCode: status.OK,
+//     success: true,
+//     message: "Participants fetched",
+//     data: result,
+//   });
+// });
+
+const getEventParticipants = catchAsync(async (req, res) => {
+     const user = req.user;
+     if (!user) throw new AppError(status.UNAUTHORIZED, "Unauthorized");
+
+     const { eventId } = req.params;
+
+     const result = await ParticipationService.getEventParticipants(
+          user,
+          eventId as string,
+     );
+
+     sendResponse(res, {
+          httpStatusCode: status.OK,
+          success: true,
+          message: "Participants fetched",
+          data: result,
+     });
+});
 export const ParticipationController = {
      joinEvent,
      cancelParticipation,
      getMyEvents,
+     getEventParticipants,
 };

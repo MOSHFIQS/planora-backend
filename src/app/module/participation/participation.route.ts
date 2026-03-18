@@ -25,4 +25,13 @@ router.get(
   ParticipationController.getMyEvents
 );
 
+
+// Organizer/Admin routes
+router.get(
+  "/event/:eventId",
+  checkAuth(Role.USER, Role.ADMIN),
+  ParticipationController.getEventParticipants
+);
+
+
 export const ParticipationRoutes = router;

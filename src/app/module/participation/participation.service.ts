@@ -66,8 +66,19 @@ const cancelParticipation = async (user: IRequestUser, eventId: string) => {
   });
 };
 
+const getMyEvents = async (user: IRequestUser) => {
+
+  return prisma.participation.findMany({
+    where: { userId: user.userId },
+    include: {
+      event: true,
+    },
+  });
+};
+
 
 export const ParticipationService = {
   joinEvent,
   cancelParticipation,
+  getMyEvents
 };

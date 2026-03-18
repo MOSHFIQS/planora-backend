@@ -19,5 +19,10 @@ router.delete(
   ParticipationController.cancelParticipation
 );
 
+router.get(
+  "/my-events",
+  checkAuth(Role.USER, Role.ADMIN),
+  ParticipationController.getMyEvents
+);
 
 export const ParticipationRoutes = router;

@@ -86,36 +86,60 @@ const getMyEvents = async (user: IRequestUser) => {
 //      });
 // };
 
-const getEventParticipants = async (
-  user: IRequestUser,
-  eventId: string
+const getEventParticipants = async (user: IRequestUser, eventId: string) => {
+     const event = await prisma.event.findUnique({
+          where: { id: eventId },
+     });
+
+     if (!event) {
+          throw new AppError(status.NOT_FOUND, "Event not found");
+     }
+
+     // 🔐 Authorization check
+     const isOrganizer = event.organizerId === user.userId;
+     const isAdmin = user.role === "ADMIN";
+
+     if (!isOrganizer && !isAdmin) {
+          throw new AppError(
+               status.FORBIDDEN,
+               "You are not allowed to view participants",
+          );
+     }
+
+     return prisma.participation.findMany({
+          where: { eventId },
+          include: {
+               user: true,
+          },
+     });
+};
+
+const updateStatus = async (
+     user: IRequestUser,
+     participationId: string,
+     newStatus: ParticipationStatus,
 ) => {
+     const participation = await prisma.participation.findUnique({
+          where: { id: participationId },
+          include: { event: true },
+     });
 
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
-  });
+     if (!participation) {
+          throw new AppError(status.NOT_FOUND, "Participation not found");
+     }
 
-  if (!event) {
-    throw new AppError(status.NOT_FOUND, "Event not found");
-  }
+     // 🔐 Only organizer or admin
+     if (
+          participation.event.organizerId !== user.userId &&
+          user.role !== "ADMIN"
+     ) {
+          throw new AppError(status.FORBIDDEN, "Not authorized");
+     }
 
-  // 🔐 Authorization check
-  const isOrganizer = event.organizerId === user.userId;
-  const isAdmin = user.role === "ADMIN";
-
-  if (!isOrganizer && !isAdmin) {
-    throw new AppError(
-      status.FORBIDDEN,
-      "You are not allowed to view participants"
-    );
-  }
-
-  return prisma.participation.findMany({
-    where: { eventId },
-    include: {
-      user: true,
-    },
-  });
+     return prisma.participation.update({
+          where: { id: participationId },
+          data: { status: newStatus },
+     });
 };
 
 export const ParticipationService = {
@@ -123,4 +147,5 @@ export const ParticipationService = {
      cancelParticipation,
      getMyEvents,
      getEventParticipants,
+     updateStatus,
 };

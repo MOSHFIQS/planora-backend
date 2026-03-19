@@ -81,10 +81,17 @@ const cancelParticipation = async (user: IRequestUser, eventId: string) => {
 
 const getMyEvents = async (user: IRequestUser) => {
      return prisma.participation.findMany({
-          where: { userId: user.userId },
-          include: {
-               event: true,
+          where: {
+               userId: user.userId,
+               status: {
+                    in: [
+                         ParticipationStatus.APPROVED,
+                         ParticipationStatus.PENDING,
+                    ],
+               },
           },
+          include: { event: true },
+          orderBy: { createdAt: "desc" },
      });
 };
 

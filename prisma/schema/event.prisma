@@ -1,16 +1,21 @@
 model Event {
-     id          String          @id @default(cuid())
+     id          String   @id @default(cuid())
      title       String
      description String
-     venue       String
+     venue       String?
      dateTime    DateTime
-     visibility  EventVisibility
-     fee         Float           @default(0)
+
+     visibility EventVisibility
+     type        EventType @default(ONLINE)
+
+     meetingLink String? // for ONLINE events
+
+     fee Float @default(0)
+
+     image String?
 
      organizerId String
      organizer   User   @relation("OrganizerEvents", fields: [organizerId], references: [id])
-
-     image String? // Add this field for event images
 
      createdAt DateTime @default(now())
      updatedAt DateTime @updatedAt
@@ -18,6 +23,7 @@ model Event {
      participations Participation[]
      invitations    Invitation[]
      reviews        Review[]
+     tickets        Ticket[]
 
      @@index([organizerId])
      @@index([visibility])

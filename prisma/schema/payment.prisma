@@ -1,28 +1,28 @@
 model Payment {
-    id                 String        @id @default(uuid())
-    amount             Float
-    transactionId      String        @unique @db.Uuid()
-    stripeEventId      String?       @unique
-    status             PaymentStatus @default(PENDING)
-    userId             String
+    id            String  @id @default(uuid())
+    amount        Float
+    transactionId String  @unique @db.Uuid()
+    stripeEventId String? @unique
+
+    status PaymentStatus @default(PENDING)
+
+    userId String
+    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
     invoiceUrl         String?
     paymentGatewayData Json?
-    createdAt          DateTime      @default(now())
-    updatedAt          DateTime      @updatedAt
 
-    // Payment for a Participation OR Invitation
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
     participationId String?
     participation   Participation? @relation(fields: [participationId], references: [id], onDelete: Cascade)
 
     invitationId String?
     invitation   Invitation? @relation(fields: [invitationId], references: [id], onDelete: Cascade)
 
-    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-    @@unique([participationId, status])
-    @@unique([invitationId, status])
     @@index([participationId])
     @@index([invitationId])
     @@index([transactionId])
-    @@map("payments")
+    @@map("payment")
 }

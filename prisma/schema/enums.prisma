@@ -13,6 +13,11 @@ enum EventVisibility {
     PRIVATE
 }
 
+enum EventType {
+  ONLINE
+  OFFLINE
+}
+
 enum ParticipationStatus {
     PENDING
     APPROVED
@@ -33,4 +38,10 @@ enum PaymentStatus {
     REFUNDED
     CANCELED
     UNPAID
+}
+
+enum TicketStatus {
+    VALID
+    USED
+    CANCELED
 }

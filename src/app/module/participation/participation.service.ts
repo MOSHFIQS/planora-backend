@@ -2,11 +2,7 @@ import status from "http-status";
 import AppError from "../../errorHelpers/AppError";
 import { prisma } from "../../lib/prisma";
 import { IRequestUser } from "../../interfaces/requestUser.interface";
-import {
-     ParticipationStatus,
-} from "../../../generated/prisma/enums";
-
-
+import { ParticipationStatus } from "../../../generated/prisma/enums";
 
 const cancelParticipation = async (user: IRequestUser, eventId: string) => {
      const participation = await prisma.participation.findUnique({
@@ -38,7 +34,20 @@ const getMyEvents = async (user: IRequestUser) => {
                     ],
                },
           },
-          include: { event: true },
+          include: {
+               event: true,
+               ticket: true,
+               payment: {
+                    select: {
+                         id: true,
+                         amount: true,
+                         status: true,
+                         createdAt: true,
+                         invoiceUrl: true,
+                         transactionId: true,
+                    },
+               },
+          },
           orderBy: { createdAt: "desc" },
      });
 };

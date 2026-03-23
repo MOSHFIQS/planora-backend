@@ -7,11 +7,14 @@ import type { JwtPayload } from "jsonwebtoken";
 
 const parseMsValue = (value: string) => ms(value as unknown as ms.StringValue);
 
+// const setCookieOptions = (maxAgeMs: number) => ({
+//     httpOnly: true,
+//     secure: true,
+//     sameSite: "none" as const,
+//     path: "/",
+//     maxAge: maxAgeMs,
+// });
 const setCookieOptions = (maxAgeMs: number) => ({
-    httpOnly: true,
-    secure: true,
-    sameSite: "none" as const,
-    path: "/",
     maxAge: maxAgeMs,
 });
 

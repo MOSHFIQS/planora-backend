@@ -12,7 +12,7 @@ model Event {
 
      fee Float @default(0)
 
-     image String?
+     images String[] 
 
      organizerId String
      organizer   User   @relation("OrganizerEvents", fields: [organizerId], references: [id])

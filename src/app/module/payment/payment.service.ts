@@ -28,8 +28,8 @@ const createStripeSession = async (paymentId: string, amount: number) => {
                },
           ],
           metadata: { paymentId },
-          success_url: `${process.env.FRONTEND_URL}/payment-success`,
-          cancel_url: `${process.env.FRONTEND_URL}/payment-cancel`,
+          success_url: `${process.env.FRONTEND_URL}/dashboard`,
+          cancel_url: `${process.env.FRONTEND_URL}/dashboard`,
      });
 };
 

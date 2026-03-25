@@ -91,7 +91,6 @@ export const getMyEvents = async (user: IRequestUser) => {
      return result;
 };
 
-// services/participation.service.ts
 const getMySingleEvent = async (
      user: IRequestUser,
      participationId: string

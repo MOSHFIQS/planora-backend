@@ -14,7 +14,7 @@ router.use("/event", EventRoutes);
 router.use("/participation", ParticipationRoutes);
 router.use("/invitations", InvitationRoutes);
 router.use("/reviews", ReviewRoutes);
-router.use("/payments", PaymentRoutes);
+router.use("/payment", PaymentRoutes);
 router.use("/file", FileRoutes);
 
 export const IndexRoutes = router;

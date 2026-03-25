@@ -30,13 +30,27 @@ const getAllEvents = catchAsync(async (req:Request, res:Response) => {
           data: result,
      });
 });
+export const getSingleEventPublic = catchAsync(async (req: Request, res: Response) => {
+    const { id } = req.params;
+  const user = req.user!;
 
-export const getSingleEvent = catchAsync(async (req: Request, res: Response) => {
+  const result = await EventService.getSingleEventPublic(user, id as string);
+
+
+    sendResponse(res, {
+        httpStatusCode: status.OK,
+        success: true,
+        message: "Event fetched successfully",
+        data: result,
+    });
+});
+
+export const organizersSingleEventById = catchAsync(async (req: Request, res: Response) => {
     const { id } = req.params;
     const userId = req.user?.userId; 
     const userRole = req.user?.role;
 
-    const event = await EventService.getSingleEvent(id as string);
+    const event = await EventService.organizersSingleEventById(id as string);
 
     // Only organizer or admin can access
     if (event.organizerId !== userId && userRole !== "ADMIN") {
@@ -119,7 +133,8 @@ const getAllEventsAdmin = catchAsync(async (req:Request, res:Response) => {
 export const EventController = {
      createEvent,
      getAllEvents,
-     getSingleEvent,
+     getSingleEventPublic,
+     organizersSingleEventById,
      getMyEvents,
      updateEvent,
      deleteEvent,

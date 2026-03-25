@@ -1,50 +1,145 @@
 import { prisma } from "../../lib/prisma";
 import { IRequestUser } from "../../interfaces/requestUser.interface";
 import { ICreateEventPayload, IUpdateEventPayload } from "./event.interface";
-import { EventVisibility, Role } from "../../../generated/prisma/enums";
+import { EventVisibility, ParticipationStatus, PaymentStatus, Role } from "../../../generated/prisma/enums";
 import AppError from "../../errorHelpers/AppError";
 import status from "http-status";
 
 const createEvent = async (
-     user: IRequestUser,
-     payload: ICreateEventPayload,
+  user: IRequestUser,
+  payload: ICreateEventPayload,
 ) => {
-     return prisma.event.create({
-          data: {
-               ...payload,
-               organizerId: user.userId,
-          },
-     });
+  return prisma.event.create({
+    data: {
+      ...payload,
+      organizerId: user.userId,
+    },
+  });
 };
 
 
 const getAllEvents = async () => {
-    return prisma.event.findMany({
-        where: {
-            visibility: EventVisibility.PUBLIC,
-        },
-        select: {
-            id: true,
-            title: true,
-            venue: true,
-            dateTime: true,
-            type: true,
-            fee: true,
-            images: true,
-            organizer: {
-                select: {
-                    id: true,
-                    name: true, 
-                },
-            },
-        },
-        orderBy: {
-            dateTime: "asc",
-        },
-    });
+  return prisma.event.findMany({
+    where: {
+      visibility: EventVisibility.PUBLIC,
+    },
+    select: {
+      id: true,
+      title: true,
+      dateTime: true,
+      type: true,
+      fee: true,
+      images: true,
+    },
+    orderBy: {
+      dateTime: "asc",
+    },
+  });
 };
 
-const getSingleEvent = async (id: string) => {
+const getSingleEventPublic = async (
+  user: IRequestUser,
+  eventId: string
+) => {
+  // 1. Check participation for this user
+  const participation = await prisma.participation.findFirst({
+    where: {
+      eventId,
+      userId: user.userId,
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+        },
+      },
+      event: {
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          venue: true,
+          dateTime: true,
+          type: true,
+          fee: true,
+          images: true,
+          meetingLink: true,
+          organizerId: true,
+          organizer: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
+      ticket: true,
+      payment: {
+        select: {
+          id: true,
+          amount: true,
+          status: true,
+          createdAt: true,
+          invoiceUrl: true,
+          transactionId: true,
+        },
+      },
+    },
+  });
+
+  // 2. If user has SUCCESS payment OR approved
+  const isUnlocked =
+    participation &&
+    (participation.status === ParticipationStatus.APPROVED ||
+      participation.payment?.some(
+        (p) => p.status === PaymentStatus.SUCCESS
+      ));
+
+  if (isUnlocked) {
+    return {
+      type: "FULL",
+      data: participation,
+    };
+  }
+
+  // 3. Otherwise return public event
+  const event = await prisma.event.findUnique({
+    where: {
+      id: eventId,
+      visibility: EventVisibility.PUBLIC,
+    },
+    select: {
+      id: true,
+      title: true,
+      venue: true,
+      dateTime: true,
+      type: true,
+      fee: true,
+      images: true,
+      organizer: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+  });
+
+  if (!event) {
+    throw new AppError(status.NOT_FOUND, "Event not found");
+  }
+
+  return {
+    type: "PUBLIC",
+    data: event,
+  };
+};
+
+
+const organizersSingleEventById = async (id: string) => {
   const event = await prisma.event.findUnique({
     where: { id },
     include: {
@@ -116,11 +211,12 @@ const getAllEventsAdmin = async () => {
 };
 
 export const EventService = {
-     createEvent,
-     getAllEvents,
-     getSingleEvent,
-     getMyEvents,
-     updateEvent,
-     deleteEvent,
-     getAllEventsAdmin
+  createEvent,
+  getAllEvents,
+  getSingleEventPublic,
+  organizersSingleEventById,
+  getMyEvents,
+  updateEvent,
+  deleteEvent,
+  getAllEventsAdmin
 };

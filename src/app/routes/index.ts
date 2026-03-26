@@ -13,7 +13,7 @@ router.use("/auth", AuthRoutes);
 router.use("/event", EventRoutes);
 router.use("/participation", ParticipationRoutes);
 router.use("/invitation", InvitationRoutes);
-router.use("/reviews", ReviewRoutes);
+router.use("/review", ReviewRoutes);
 router.use("/payment", PaymentRoutes);
 router.use("/file", FileRoutes);
 

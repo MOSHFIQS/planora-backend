@@ -38,9 +38,9 @@ const createReview = async (
   }
 
   // Event must be finished
-  if (event.dateTime > new Date()) {
-    throw new AppError(status.BAD_REQUEST, "Event not finished yet");
-  }
+  // if (event.dateTime > new Date()) {
+  //   throw new AppError(status.BAD_REQUEST, "Event not finished yet");
+  // }
 
   // Prevent duplicate review
   const existing = await prisma.review.findUnique({
@@ -96,14 +96,22 @@ const deleteReview = async (
   user: IRequestUser,
   reviewId: string
 ) => {
-
   const review = await prisma.review.findUnique({
     where: { id: reviewId },
+    include: {
+      event: true, // needed to check organizer
+    },
   });
 
-  if (!review) throw new AppError(status.NOT_FOUND, "Review not found");
+  if (!review) {
+    throw new AppError(status.NOT_FOUND, "Review not found");
+  }
 
-  if (review.userId !== user.userId && user.role !== "ADMIN") {
+  const isOwner = review.userId === user.userId;
+  const isOrganizer = review.event.organizerId === user.userId;
+  const isAdmin = user.role === "ADMIN";
+
+  if (!isOwner && !isOrganizer && !isAdmin) {
     throw new AppError(status.FORBIDDEN, "Not authorized");
   }
 
@@ -138,10 +146,56 @@ const getMyReviews = async (user: IRequestUser) => {
 };
 
 
+const getOrganizerEventReviewsByEventId = async (
+  user: IRequestUser,
+  eventId: string
+) => {
+  try {
+    if (!user?.userId) {
+      throw new AppError(status.UNAUTHORIZED, "Unauthorized access");
+    }
+
+    // check event exists
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+    });
+
+    if (!event) {
+      throw new AppError(status.NOT_FOUND, "Event not found");
+    }
+
+    // check ownership
+    if (event.organizerId !== user.userId) {
+      throw new AppError(status.FORBIDDEN, "You are not the organizer of this event");
+    }
+
+    // fetch reviews
+    const reviews = await prisma.review.findMany({
+      where: { eventId },
+      include: {
+        user: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return reviews;
+  } catch (error) {
+    if (error instanceof AppError) throw error;
+
+    throw new AppError(
+      status.INTERNAL_SERVER_ERROR,
+      "Failed to fetch event reviews"
+    );
+  }
+};
+
 export const ReviewService = {
   createReview,
   updateReview,
   deleteReview,
   getEventReviews,
   getMyReviews,
+  getOrganizerEventReviewsByEventId
 };

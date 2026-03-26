@@ -86,10 +86,31 @@ const getMyReviews = catchAsync(async (req:Request, res:Response) => {
 });
 
 
+const getOrganizerEventReviewsByEventId = catchAsync(
+  async (req: Request, res: Response) => {
+    const user = req.user!;
+    const { eventId } = req.params;
+
+    const result =
+      await ReviewService.getOrganizerEventReviewsByEventId(
+        user,
+        eventId as string
+      );
+
+    sendResponse(res, {
+      httpStatusCode: status.OK,
+      success: true,
+      message: "Event reviews fetched",
+      data: result,
+    });
+  }
+);
+
 export const ReviewController = {
   createReview,
   updateReview,
   deleteReview,
   getEventReviews,
   getMyReviews,
+  getOrganizerEventReviewsByEventId
 };

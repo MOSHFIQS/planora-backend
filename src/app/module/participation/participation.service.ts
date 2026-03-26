@@ -45,6 +45,14 @@ export const getMyEvents = async (user: IRequestUser) => {
                                    name: true,
                               },
                          },
+                         reviews: {
+                              where: {
+                                   userId: user.userId,
+                              },
+                              select: {
+                                   id: true,
+                              },
+                         },
                     },
                },
                ticket: true,
@@ -77,8 +85,8 @@ export const getMyEvents = async (user: IRequestUser) => {
                          id: true,
                          title: true,
                          dateTime: true,
-                         type:true,
-                         venue:true,
+                         type: true,
+                         venue: true,
                          fee: true,
                          images: true,
                     },
@@ -133,7 +141,7 @@ export const getMyAllEventParticipants = async (user: IRequestUser) => {
           throw new AppError(status.UNAUTHORIZED, "Unauthorized");
      }
 
-     
+
 
      const events: EventData[] = await prisma.event.findMany({
           where: { organizerId: user.userId },

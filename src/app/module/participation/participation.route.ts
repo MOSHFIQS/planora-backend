@@ -11,12 +11,6 @@ router.get(
      checkAuth(Role.USER, Role.ADMIN),
      ParticipationController.getMyEvents,
 );
-// routes/participation.routes.ts
-router.get(
-     "/me/:id",                     // participant's own participation
-     checkAuth(Role.USER, Role.ADMIN),
-     ParticipationController.getMySingleEvent
-);
 
 // Organizer/Admin routes
 router.get(

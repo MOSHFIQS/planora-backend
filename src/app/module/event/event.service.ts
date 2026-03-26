@@ -108,8 +108,7 @@ const getSingleEventPublic = async (
   // 3. Otherwise return public event
   const event = await prisma.event.findUnique({
     where: {
-      id: eventId,
-      visibility: EventVisibility.PUBLIC,
+      id: eventId
     },
     select: {
       id: true,

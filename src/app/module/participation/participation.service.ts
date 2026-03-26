@@ -77,6 +77,8 @@ export const getMyEvents = async (user: IRequestUser) => {
                          id: true,
                          title: true,
                          dateTime: true,
+                         type:true,
+                         venue:true,
                          fee: true,
                          images: true,
                     },
@@ -90,70 +92,6 @@ export const getMyEvents = async (user: IRequestUser) => {
      );
 
      return result;
-};
-
-const getMySingleEvent = async (
-     user: IRequestUser,
-     participationId: string
-) => {
-     const participation = await prisma.participation.findUnique({
-          where: { id: participationId },
-          include: {
-               user: {
-                    select: {
-                         id: true,
-                         name: true,
-                         email: true,
-                         image: true,
-                    },
-               },
-               event: {
-                    select: {
-                         id: true,
-                         title: true,
-                         description: true,
-                         venue: true,
-                         dateTime: true,
-                         type: true,
-                         fee: true,
-                         images: true,
-                         meetingLink: true,
-                         organizerId: true,
-                         organizer: {
-                              select: {
-                                   id: true,
-                                   name: true,
-                              },
-                         },
-                    },
-               },
-               ticket: true,
-               payment: {
-                    select: {
-                         id: true,
-                         amount: true,
-                         status: true,
-                         createdAt: true,
-                         invoiceUrl: true,
-                         transactionId: true,
-                    },
-               },
-          },
-     });
-
-     if (!participation) {
-          throw new AppError(status.NOT_FOUND, "Participation not found");
-     }
-
-     // Only the participant can access their own participation
-     if (participation.userId !== user.userId) {
-          throw new AppError(
-               status.FORBIDDEN,
-               "You are not allowed to view this participation"
-          );
-     }
-
-     return participation;
 };
 
 
@@ -321,7 +259,6 @@ const updateStatus = async (
 
 export const ParticipationService = {
      getMyEvents,
-     getMySingleEvent,
      getMyAllEventParticipants,
      getEventParticipants,
      updateStatus,

@@ -62,25 +62,47 @@ const getEventInvitations = async (user: IRequestUser, eventId: string) => {
   });
 };
 
+//TODO
 const getMyInvitations = async (user: IRequestUser) => {
   return prisma.invitation.findMany({
     where: { userId: user.userId },
-    include: { event: true },
+    include: {
+      event: {
+        select: {
+          id: true,
+          title: true,
+          dateTime: true,
+          type: true,
+          fee: true,
+          images: true,
+        },
+      },
+
+
+    },
   });
 };
 
 const cancelInvitation = async (user: IRequestUser, invitationId: string) => {
-  const invitation = await prisma.invitation.findUnique({
-    where: { id: invitationId },
-    include: { event: true },
-  });
-  if (!invitation) throw new AppError(status.NOT_FOUND, "Invitation not found");
-
-  if (invitation.event.organizerId !== user.userId && user.role !== "ADMIN") {
-    throw new AppError(status.FORBIDDEN, "Not authorized");
+  if (!user?.userId) {
+    throw new AppError(status.UNAUTHORIZED, "Unauthorized");
   }
 
-  return prisma.invitation.delete({ where: { id: invitationId } });
+  const invitation = await prisma.invitation.findUnique({
+    where: { id: invitationId },
+  });
+
+  if (!invitation) {
+    throw new AppError(status.NOT_FOUND, "Invitation not found");
+  }
+
+  if (invitation.userId !== user.userId) {
+    throw new AppError(status.FORBIDDEN, "You are not allowed to cancel this invitation");
+  }
+
+  return prisma.invitation.delete({
+    where: { id: invitationId },
+  });
 };
 
 export const InvitationService = {

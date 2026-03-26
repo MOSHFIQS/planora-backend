@@ -4,117 +4,88 @@ import { prisma } from "../../lib/prisma";
 import { IRequestUser } from "../../interfaces/requestUser.interface";
 import { EventVisibility } from "../../../generated/prisma/enums";
 
-
 const sendInvitation = async (
-     user: IRequestUser,
-     eventId: string,
-     targetUserId: string,
+  user: IRequestUser,
+  eventId: string,
+  targetUserId: string
 ) => {
-     const event = await prisma.event.findUnique({
-          where: { id: eventId },
-     });
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  if (!event) throw new AppError(status.NOT_FOUND, "Event not found");
 
-     if (!event) throw new AppError(status.NOT_FOUND, "Event not found");
+  if (event.visibility !== EventVisibility.PRIVATE) {
+    throw new AppError(status.BAD_REQUEST, "Invitations only for private events");
+  }
 
-     // Only private events
-     if (event.visibility !== EventVisibility.PRIVATE) {
-          throw new AppError(
-               status.BAD_REQUEST,
-               "Invitations only for private events",
-          );
-     }
+  if (event.organizerId !== user.userId && user.role !== "ADMIN") {
+    throw new AppError(status.FORBIDDEN, "Not authorized");
+  }
 
-     // Only organizer or admin
-     if (event.organizerId !== user.userId && user.role !== "ADMIN") {
-          throw new AppError(status.FORBIDDEN, "Not authorized");
-     }
+  if (event.organizerId === targetUserId) {
+    throw new AppError(status.BAD_REQUEST, "Organizer cannot invite self");
+  }
 
-     // Prevent inviting organizer
-     if (event.organizerId === targetUserId) {
-          throw new AppError(
-               status.BAD_REQUEST,
-               "Organizer cannot invite self",
-          );
-     }
+  // Already joined?
+  const existingParticipation = await prisma.participation.findUnique({
+    where: { userId_eventId: { userId: targetUserId, eventId } },
+  });
+  if (existingParticipation) {
+    throw new AppError(status.BAD_REQUEST, "User already joined");
+  }
 
+  // Already invited?
+  const existingInvitation = await prisma.invitation.findFirst({
+    where: { userId: targetUserId, eventId },
+  });
+  if (existingInvitation) {
+    throw new AppError(status.BAD_REQUEST, "User has already been invited");
+  }
 
-     const existingParticipation = await prisma.participation.findUnique({
-          where: {
-               userId_eventId: {
-                    userId: targetUserId,
-                    eventId,
-               },
-          },
-     });
-
-     if (existingParticipation) {
-          throw new AppError(status.BAD_REQUEST, "User already joined");
-     }
-
-     return prisma.invitation.create({
-          data: {
-               eventId,
-               userId: targetUserId,
-          },
-     });
+  return prisma.invitation.create({
+    data: {
+      eventId,
+      userId: targetUserId,
+    },
+  });
 };
-
 
 const getEventInvitations = async (user: IRequestUser, eventId: string) => {
-     const event = await prisma.event.findUnique({
-          where: { id: eventId },
-     });
+  const event = await prisma.event.findUnique({ where: { id: eventId } });
+  if (!event) throw new AppError(status.NOT_FOUND, "Event not found");
 
-     if (!event) throw new AppError(status.NOT_FOUND, "Event not found");
+  if (event.organizerId !== user.userId && user.role !== "ADMIN") {
+    throw new AppError(status.FORBIDDEN, "Not authorized");
+  }
 
-     if (event.organizerId !== user.userId && user.role !== "ADMIN") {
-          throw new AppError(status.FORBIDDEN, "Not authorized");
-     }
-
-     return prisma.invitation.findMany({
-          where: { eventId },
-          include: {
-               user: true,
-          },
-     });
+  return prisma.invitation.findMany({
+    where: { eventId },
+    include: { user: true },
+  });
 };
-
 
 const getMyInvitations = async (user: IRequestUser) => {
-     return prisma.invitation.findMany({
-          where: { userId: user.userId },
-          include: {
-               event: true,
-          },
-     });
+  return prisma.invitation.findMany({
+    where: { userId: user.userId },
+    include: { event: true },
+  });
 };
 
-
 const cancelInvitation = async (user: IRequestUser, invitationId: string) => {
-     const invitation = await prisma.invitation.findUnique({
-          where: { id: invitationId },
-          include: { event: true },
-     });
+  const invitation = await prisma.invitation.findUnique({
+    where: { id: invitationId },
+    include: { event: true },
+  });
+  if (!invitation) throw new AppError(status.NOT_FOUND, "Invitation not found");
 
-     if (!invitation) {
-          throw new AppError(status.NOT_FOUND, "Invitation not found");
-     }
+  if (invitation.event.organizerId !== user.userId && user.role !== "ADMIN") {
+    throw new AppError(status.FORBIDDEN, "Not authorized");
+  }
 
-     if (
-          invitation.event.organizerId !== user.userId &&
-          user.role !== "ADMIN"
-     ) {
-          throw new AppError(status.FORBIDDEN, "Not authorized");
-     }
-
-     return prisma.invitation.delete({
-          where: { id: invitationId },
-     });
+  return prisma.invitation.delete({ where: { id: invitationId } });
 };
 
 export const InvitationService = {
-     sendInvitation,
-     getEventInvitations,
-     getMyInvitations,
-     cancelInvitation,
+  sendInvitation,
+  getEventInvitations,
+  getMyInvitations,
+  cancelInvitation,
 };

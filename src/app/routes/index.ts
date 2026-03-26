@@ -12,7 +12,7 @@ const router = Router();
 router.use("/auth", AuthRoutes);
 router.use("/event", EventRoutes);
 router.use("/participation", ParticipationRoutes);
-router.use("/invitations", InvitationRoutes);
+router.use("/invitation", InvitationRoutes);
 router.use("/reviews", ReviewRoutes);
 router.use("/payment", PaymentRoutes);
 router.use("/file", FileRoutes);

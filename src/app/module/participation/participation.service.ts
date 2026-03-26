@@ -3,6 +3,7 @@ import AppError from "../../errorHelpers/AppError";
 import { prisma } from "../../lib/prisma";
 import { IRequestUser } from "../../interfaces/requestUser.interface";
 import { ParticipationStatus, PaymentStatus } from "../../../generated/prisma/enums";
+import { EventData, UserWithEvents } from "./participation.interface";
 
 
 
@@ -185,6 +186,111 @@ const getEventParticipants = async (user: IRequestUser, eventId: string) => {
      });
 };
 
+
+
+
+
+export const getMyAllEventParticipants = async (user: IRequestUser) => {
+     if (!user?.userId) {
+          throw new AppError(status.UNAUTHORIZED, "Unauthorized");
+     }
+
+     
+
+     const events: EventData[] = await prisma.event.findMany({
+          where: { organizerId: user.userId },
+          select: {
+               id: true,
+               title: true,
+               dateTime: true,
+               participations: {
+                    select: {
+                         user: { select: { id: true, name: true, email: true, image: true } },
+                         status: true,
+                    },
+               },
+               invitations: {
+                    select: {
+                         user: { select: { id: true, name: true, email: true, image: true } },
+                         status: true,
+                    },
+               },
+          },
+     });
+
+     const usersMap = new Map<string, UserWithEvents>();
+
+     events.forEach((event) => {
+          // Process participations first
+          event.participations.forEach((p) => {
+               const existingUser: UserWithEvents =
+                    usersMap.get(p.user.id) || { ...p.user, events: [] };
+
+               const eventIndex = existingUser.events.findIndex(
+                    (e) => e.eventId === event.id
+               );
+
+               // Only handle PENDING or APPROVED
+               if (p.status === "APPROVED" || p.status === "PENDING") {
+                    const invited = p.status === "PENDING"; // pending = invited, approved = not invited
+
+                    if (eventIndex > -1) {
+                         existingUser.events[eventIndex] = {
+                              ...existingUser.events[eventIndex],
+                              participationStatus: p.status,
+                              invited,
+                         };
+                    } else {
+                         existingUser.events.push({
+                              eventId: event.id,
+                              title: event.title,
+                              dateTime: event.dateTime,
+                              participationStatus: p.status,
+                              invitationStatus: null,
+                              invited,
+                         });
+                    }
+
+                    usersMap.set(p.user.id, existingUser);
+               }
+          });
+
+          // Then process invitations (only if no participation exists)
+          event.invitations.forEach((inv) => {
+               const existingUser: UserWithEvents =
+                    usersMap.get(inv.user.id) || { ...inv.user, events: [] };
+
+               const eventIndex = existingUser.events.findIndex(
+                    (e) => e.eventId === event.id
+               );
+
+               if (eventIndex > -1) {
+                    // Only mark as invited if no APPROVED participation exists
+                    const hasApproved = existingUser.events[eventIndex].participationStatus === "APPROVED";
+                    existingUser.events[eventIndex] = {
+                         ...existingUser.events[eventIndex],
+                         invitationStatus: inv.status,
+                         invited: hasApproved ? false : true,
+                    };
+               } else {
+                    existingUser.events.push({
+                         eventId: event.id,
+                         title: event.title,
+                         dateTime: event.dateTime,
+                         participationStatus: null,
+                         invitationStatus: inv.status,
+                         invited: true,
+                    });
+               }
+
+               usersMap.set(inv.user.id, existingUser);
+          });
+     });
+
+     return Array.from(usersMap.values());
+};
+
+
 const updateStatus = async (
      user: IRequestUser,
      participationId: string,
@@ -216,6 +322,7 @@ const updateStatus = async (
 export const ParticipationService = {
      getMyEvents,
      getMySingleEvent,
+     getMyAllEventParticipants,
      getEventParticipants,
      updateStatus,
 };

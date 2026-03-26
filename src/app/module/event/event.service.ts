@@ -177,7 +177,7 @@ const updateEvent = async (
 
   if (!event) throw new AppError(status.NOT_FOUND, "Event not found");
 
-  // Only organizer or admin
+
   if (event.organizerId !== user.userId && user.role !== Role.ADMIN) {
     throw new AppError(status.FORBIDDEN, "Not authorized");
   }

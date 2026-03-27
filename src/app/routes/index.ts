@@ -8,6 +8,7 @@ import { PaymentRoutes } from "../module/payment/payment.route";
 import { FileRoutes } from "../module/file/file.route";
 import { AdminRoutes } from "../module/admin/admin.route";
 import { UserRoutes } from "../module/user/user.route";
+import { ProfileRoutes } from "../module/profile/profile.route";
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use("/payment", PaymentRoutes);
 router.use("/file", FileRoutes);
 router.use("/admin", AdminRoutes);
 router.use("/user", UserRoutes);
+router.use("/profile", ProfileRoutes);
 
 export const IndexRoutes = router;

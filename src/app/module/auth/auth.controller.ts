@@ -55,23 +55,7 @@ const loginUser = catchAsync(async (req: Request, res: Response) => {
      });
 });
 
-const getMe = catchAsync(
-    async (req: Request, res: Response) => {
-        const user = req.user;
-        // console.log("user",user);
-        if (!user) {
-            throw new AppError(status.UNAUTHORIZED, "Unauthorized");
-        }
 
-        const result = await AuthService.getMe(user);
-        sendResponse(res, {
-            httpStatusCode: status.OK,
-            success: true,
-            message: "User profile fetched successfully",
-            data: result,
-        });
-    }
-)
 
 const getNewToken = catchAsync(
     async (req: Request, res: Response) => {
@@ -106,6 +90,5 @@ const getNewToken = catchAsync(
 export const AuthController = {
      registerUser,
      loginUser,
-     getMe,
      getNewToken
 };

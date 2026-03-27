@@ -2,6 +2,8 @@ import status from "http-status";
 import AppError from "../../errorHelpers/AppError";
 import { prisma } from "../../lib/prisma";
 import { InvitationStatus, ParticipationStatus, PaymentStatus, UserStatus } from "../../../generated/prisma/enums";
+import { User } from "../../../generated/prisma/client";
+import { IRequestUser } from "../../interfaces/requestUser.interface";
 
 // get all users
 const getAllUsers = async () => {
@@ -33,7 +35,18 @@ const updateUserStatus = async (id: string, statusValue: UserStatus) => {
 };
 
 // soft delete user
-const deleteUser = async (id: string) => {
+const deleteUser = async (id: string, user: IRequestUser) => {
+  
+  if (user.role !== "ADMIN") {
+    throw new AppError(status.UNAUTHORIZED, "You are not authorized");
+  }
+
+  
+  if (user.userId === id) {
+    throw new AppError(status.BAD_REQUEST, "You cannot delete yourself");
+  }
+
+  //  Delete (soft delete)
   return prisma.user.update({
     where: { id },
     data: {
@@ -42,7 +55,6 @@ const deleteUser = async (id: string) => {
     },
   });
 };
-
 const getAdminStats = async () => {
   // ===== USERS =====
   const totalUsers = await prisma.user.count();

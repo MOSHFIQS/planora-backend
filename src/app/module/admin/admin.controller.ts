@@ -3,6 +3,7 @@ import status from "http-status";
 import { AdminService } from "./admin.service";
 import { catchAsync } from "../../shared/catchAsync";
 import { sendResponse } from "../../shared/sendResponse";
+import AppError from "../../errorHelpers/AppError";
 
 const getAllUsers = catchAsync(async (req: Request, res: Response) => {
   const result = await AdminService.getAllUsers();
@@ -31,8 +32,10 @@ const updateUserStatus = catchAsync(async (req, res) => {
 
 const deleteUser = catchAsync(async (req, res) => {
   const { id } = req.params;
+  const user = req.user;
+  if (!user) throw new AppError(status.UNAUTHORIZED, "Unauthorized");
 
-  const result = await AdminService.deleteUser(id as string);
+  const result = await AdminService.deleteUser(id as string, user);
 
   sendResponse(res, {
     httpStatusCode: status.OK,

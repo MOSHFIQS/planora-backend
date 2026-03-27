@@ -45,3 +45,9 @@ enum TicketStatus {
     USED
     CANCELED
 }
+
+enum BannerPosition {
+    MAIN
+    SECONDARY
+    THIRD
+}

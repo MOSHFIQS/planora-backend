@@ -126,6 +126,23 @@ enum TicketStatus {
     CANCELED
 }
 
+model Category {
+    id          String   @id @default(uuid())
+    name        String
+    description String?
+    image       String?
+
+    isDeleted Boolean   @default(false)
+    deletedAt DateTime?
+    events Event[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([name])
+    @@map("category")
+}
+
 model Event {
      id          String   @id @default(cuid())
      title       String
@@ -141,6 +158,9 @@ model Event {
      fee Float @default(0)
 
      images String[] 
+
+     categoryId String
+     category   Category @relation(fields: [categoryId], references: [id])
 
      organizerId String
      organizer   User   @relation("OrganizerEvents", fields: [organizerId], references: [id])
@@ -159,6 +179,34 @@ model Event {
      @@map("event")
 }
 
+
+model Banner {
+    id String @id @default(uuid())
+
+    title       String
+    description String?
+
+    image       String
+    redirectUrl String?
+
+    position      BannerPosition
+    positionOrder Int
+
+    buttonText String?
+    altText    String?
+
+    isActive Boolean @default(true)
+
+    isDeleted Boolean   @default(false)
+    deletedAt DateTime?
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@index([position])
+    @@index([isActive])
+    @@map("banner")
+}
 
 model Invitation {
   id String @id @default(cuid())

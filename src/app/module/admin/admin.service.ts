@@ -2,7 +2,6 @@ import status from "http-status";
 import AppError from "../../errorHelpers/AppError";
 import { prisma } from "../../lib/prisma";
 import { InvitationStatus, ParticipationStatus, PaymentStatus, UserStatus } from "../../../generated/prisma/enums";
-import { User } from "../../../generated/prisma/client";
 import { IRequestUser } from "../../interfaces/requestUser.interface";
 
 // get all users

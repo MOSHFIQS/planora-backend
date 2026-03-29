@@ -12,6 +12,8 @@ import {
      ParticipationStatus,
      InvitationStatus,
 } from "../../../generated/prisma/enums";
+import { IQueryParams } from "../../interfaces/query.interface";
+import { QueryBuilder } from "../../utils/QueryBuilder";
 
 const createStripeSession = async (paymentId: string, amount: number) => {
      const session = await stripe.checkout.sessions.create({
@@ -434,12 +436,49 @@ const handleStripeWebhookEvent = async (event: Stripe.Event) => {
 
 
 
-const getMyPayments = async (user: IRequestUser) => {
-     const payments = await prisma.payment.findMany({
-          where: {
+// const getMyPayments = async (user: IRequestUser) => {
+//      const payments = await prisma.payment.findMany({
+//           where: {
+//                userId: user.userId,
+//           },
+//           include: {
+//                participation: {
+//                     include: {
+//                          event: true,
+//                     },
+//                },
+//                invitation: {
+//                     include: {
+//                          event: true,
+//                     },
+//                },
+//           },
+//           orderBy: {
+//                createdAt: "desc",
+//           },
+//      });
+
+//      return payments;
+// };
+
+const getMyPayments = async (
+     user: IRequestUser,
+     query: IQueryParams
+) => {
+     if (!user?.userId) {
+          throw new AppError(status.UNAUTHORIZED, "Unauthorized");
+     }
+
+     const queryBuilder = new QueryBuilder(
+          prisma.payment,
+          query
+     );
+
+     const result = await queryBuilder
+          .where({
                userId: user.userId,
-          },
-          include: {
+          })
+          .include({
                participation: {
                     include: {
                          event: true,
@@ -450,19 +489,71 @@ const getMyPayments = async (user: IRequestUser) => {
                          event: true,
                     },
                },
-          },
-          orderBy: {
-               createdAt: "desc",
-          },
-     });
+          })
+          .sort()
+          .paginate()
+          .execute();
 
-     return payments;
+     return result;
 };
 
 // 🔹 2. Organizer → participants payments
-const getOrganizerPayments = async (user: IRequestUser) => {
-     const payments = await prisma.payment.findMany({
-          where: {
+// const getOrganizerPayments = async (user: IRequestUser, query: IQueryParams) => {
+//      const payments = await prisma.payment.findMany({
+//           where: {
+//                OR: [
+//                     {
+//                          participation: {
+//                               event: {
+//                                    organizerId: user.userId,
+//                               },
+//                          },
+//                     },
+//                     {
+//                          invitation: {
+//                               event: {
+//                                    organizerId: user.userId,
+//                               },
+//                          },
+//                     },
+//                ],
+//           },
+//           include: {
+//                user: true,
+//                participation: {
+//                     include: {
+//                          event: true,
+//                     },
+//                },
+//                invitation: {
+//                     include: {
+//                          event: true,
+//                     },
+//                },
+//           },
+//           orderBy: {
+//                createdAt: "desc",
+//           },
+//      });
+
+//      return payments;
+// };
+
+const getOrganizerPayments = async (
+     user: IRequestUser,
+     query: IQueryParams
+) => {
+     if (!user?.userId) {
+          throw new AppError(status.UNAUTHORIZED, "Unauthorized");
+     }
+
+     const queryBuilder = new QueryBuilder(
+          prisma.payment,
+          query
+     );
+
+     const result = await queryBuilder
+          .where({
                OR: [
                     {
                          participation: {
@@ -479,8 +570,8 @@ const getOrganizerPayments = async (user: IRequestUser) => {
                          },
                     },
                ],
-          },
-          include: {
+          })
+          .include({
                user: true,
                participation: {
                     include: {
@@ -492,42 +583,77 @@ const getOrganizerPayments = async (user: IRequestUser) => {
                          event: true,
                     },
                },
-          },
-          orderBy: {
-               createdAt: "desc",
-          },
-     });
+          })
+          .sort()
+          .paginate()
+          .execute();
 
-     return payments;
+     return result;
 };
 
 // 🔹 3. Admin → all payments
-const getAllPayments = async (user: IRequestUser) => {
-     // Only admin allowed
-     if (user.role !== "ADMIN") {
-          throw new Error("Unauthorized access");
-     }
+// const getAllPayments = async (user: IRequestUser) => {
+//      // Only admin allowed
+//      if (user.role !== "ADMIN") {
+//           throw new Error("Unauthorized access");
+//      }
 
-     const payments = await prisma.payment.findMany({
-          include: {
-               user: true,
-               participation: {
-                    include: {
-                         event: true,
-                    },
-               },
-               invitation: {
-                    include: {
-                         event: true,
-                    },
-               },
-          },
-          orderBy: {
-               createdAt: "desc",
-          },
-     });
+//      const payments = await prisma.payment.findMany({
+//           include: {
+//                user: true,
+//                participation: {
+//                     include: {
+//                          event: true,
+//                     },
+//                },
+//                invitation: {
+//                     include: {
+//                          event: true,
+//                     },
+//                },
+//           },
+//           orderBy: {
+//                createdAt: "desc",
+//           },
+//      });
 
-     return payments;
+//      return payments;
+// };
+
+
+const getAllPayments = async (
+  user: IRequestUser,
+  query: IQueryParams
+) => {
+  // Only admin allowed
+  if (user.role !== "ADMIN") {
+    throw new AppError(status.UNAUTHORIZED, "Unauthorized access");
+  }
+
+  const queryBuilder = new QueryBuilder(
+    prisma.payment,
+    query
+  );
+
+  const result = await queryBuilder
+    .include({
+      user: true,
+      participation: {
+        include: {
+          event: true,
+        },
+      },
+      invitation: {
+        include: {
+          event: true,
+        },
+      },
+    })
+    .sort()
+    .paginate()
+    .execute();
+
+  return result;
 };
 
 

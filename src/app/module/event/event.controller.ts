@@ -4,6 +4,7 @@ import { catchAsync } from "../../shared/catchAsync";
 import { sendResponse } from "../../shared/sendResponse";
 import { EventService } from "./event.service";
 import AppError from "../../errorHelpers/AppError";
+import { IQueryParams } from "../../interfaces/query.interface";
 
 const createEvent = catchAsync(async (req: Request, res: Response) => {
      const user = req.user;
@@ -20,14 +21,10 @@ const createEvent = catchAsync(async (req: Request, res: Response) => {
           data: result,
      });
 });
+
 const getAllEvents = catchAsync(async (req: Request, res: Response) => {
-     const { search, categoryId } = req.query;
-     const result = await EventService.getAllEvents(
-          {
-               search: search as string,
-               categoryId: categoryId as string,
-          }
-     );
+     const query = req.query;
+     const result = await EventService.getAllEvents(query as IQueryParams);
 
      sendResponse(res, {
           httpStatusCode: status.OK,
@@ -36,6 +33,8 @@ const getAllEvents = catchAsync(async (req: Request, res: Response) => {
           data: result,
      });
 });
+
+
 export const getSingleEventPublic = catchAsync(async (req: Request, res: Response) => {
      const { id } = req.params;
      const user = req.user!;
@@ -72,12 +71,13 @@ export const organizersSingleEventById = catchAsync(async (req: Request, res: Re
 });
 
 const getMyEvents = catchAsync(async (req: Request, res: Response) => {
+     const query = req.query;
      const user = req.user;
      if (!user) {
           throw new AppError(status.UNAUTHORIZED, "Unauthorized");
      }
 
-     const result = await EventService.getMyEvents(user);
+     const result = await EventService.getMyEvents(user, query as IQueryParams);
 
      sendResponse(res, {
           httpStatusCode: status.OK,

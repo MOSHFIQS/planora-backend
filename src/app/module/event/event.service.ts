@@ -4,6 +4,10 @@ import { ICreateEventPayload, IUpdateEventPayload } from "./event.interface";
 import { EventVisibility, ParticipationStatus, PaymentStatus, Role } from "../../../generated/prisma/enums";
 import AppError from "../../errorHelpers/AppError";
 import status from "http-status";
+import { IQueryParams } from "../../interfaces/query.interface";
+import { QueryBuilder } from "../../utils/QueryBuilder";
+import { Prisma } from "../../../generated/prisma/client";
+import { eventFilterableFields, eventSearchableFields } from "./event.constant";
 
 export const createEvent = async (
   user: IRequestUser,
@@ -28,31 +32,67 @@ export const createEvent = async (
   });
 };
 
-const getAllEvents = async (filters: {
-  search?: string;
-  categoryId?: string;
-}) => {
-  const { search, categoryId } = filters;
+// const getAllEvents = async (filters: {
+//   search?: string;
+//   categoryId?: string;
+// }) => {
+//   const { search, categoryId } = filters;
 
-  return prisma.event.findMany({
-    where: {
+//   return prisma.event.findMany({
+//     where: {
+//       visibility: EventVisibility.PUBLIC,
+
+
+//       ...(search && {
+//         title: {
+//           contains: search,
+//           mode: "insensitive", 
+//         },
+//       }),
+
+
+//       ...(categoryId && {
+//         categoryId: categoryId,
+//       }),
+//     },
+
+//     select: {
+//       id: true,
+//       title: true,
+//       dateTime: true,
+//       type: true,
+//       fee: true,
+//       images: true,
+//       categoryId: true,
+//     },
+
+//     orderBy: {
+//       dateTime: "asc",
+//     },
+//   });
+// };
+
+const getAllEvents = async (query: IQueryParams) => {
+  const queryBuilder = new QueryBuilder<
+    Event,
+    Prisma.EventWhereInput,
+    Prisma.EventInclude
+  >(
+    prisma.event,
+    query,
+    {
+      searchableFields: eventSearchableFields,
+      filterableFields: eventFilterableFields,
+    }
+  );
+
+  const result = await queryBuilder
+    .search()
+    .filter()
+    .where({
       visibility: EventVisibility.PUBLIC,
-
-      
-      ...(search && {
-        title: {
-          contains: search,
-          mode: "insensitive", 
-        },
-      }),
-
-      
-      ...(categoryId && {
-        categoryId: categoryId,
-      }),
-    },
-
-    select: {
+    })
+    .selectFixed({
       id: true,
       title: true,
       dateTime: true,
@@ -60,13 +100,33 @@ const getAllEvents = async (filters: {
       fee: true,
       images: true,
       categoryId: true,
-    },
+    })
+    .sort()
+    .paginate()
+    .execute();
 
-    orderBy: {
-      dateTime: "asc",
-    },
-  });
+  return result;
 };
+
+const getMyEvents = async (user: IRequestUser, query: IQueryParams) => {
+  const queryBuilder = new QueryBuilder<
+    Event,
+    Prisma.EventWhereInput,
+    Prisma.EventInclude
+  >(prisma.event, query);
+
+  const result = await queryBuilder
+    .where({
+      organizerId: user.userId,
+    })
+    .sort()       
+    .paginate()
+    .execute()  
+
+  return result; 
+};
+
+
 
 const getSingleEventPublic = async (
   user: IRequestUser,
@@ -187,16 +247,7 @@ const organizersSingleEventById = async (id: string) => {
   return event;
 };
 
-const getMyEvents = async (user: IRequestUser) => {
-  return prisma.event.findMany({
-    where: {
-      organizerId: user.userId,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-};
+
 
 
 export const updateEvent = async (

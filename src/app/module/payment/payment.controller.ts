@@ -8,6 +8,7 @@ import { sendResponse } from "../../shared/sendResponse";
 import { PaymentService } from "./payment.service";
 import { stripe } from "../../config/stripe.config";
 import { envVars } from "../../config/env";
+import { IQueryParams } from "../../interfaces/query.interface";
 
 
 const initiatePayment = catchAsync(async (req: Request, res: Response) => {
@@ -49,8 +50,10 @@ const handleStripeWebhookEvent = catchAsync(
 
 const getMyPayments = catchAsync(async (req: Request, res: Response) => {
   const user = req.user!;
+  const query = req.query;
 
-  const result = await PaymentService.getMyPayments(user);
+
+  const result = await PaymentService.getMyPayments(user,query as IQueryParams); 
 
   sendResponse(res, {
     httpStatusCode: status.OK,
@@ -62,8 +65,9 @@ const getMyPayments = catchAsync(async (req: Request, res: Response) => {
 
 const getOrganizerPayments = catchAsync(async (req: Request, res: Response) => {
   const user = req.user!;
+  const query = req.query;
 
-  const result = await PaymentService.getOrganizerPayments(user);
+  const result = await PaymentService.getOrganizerPayments(user, query as IQueryParams);
 
   sendResponse(res, {
     httpStatusCode: status.OK,
@@ -75,8 +79,9 @@ const getOrganizerPayments = catchAsync(async (req: Request, res: Response) => {
 
 const getAllPayments = catchAsync(async (req: Request, res: Response) => {
   const user = req.user!;
+  const query = req.query;
 
-  const result = await PaymentService.getAllPayments(user);
+  const result = await PaymentService.getAllPayments(user, query as IQueryParams);
 
   sendResponse(res, {
     httpStatusCode: status.OK,

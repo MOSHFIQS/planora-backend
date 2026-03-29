@@ -5,6 +5,7 @@ import { sendResponse } from "../../shared/sendResponse";
 import AppError from "../../errorHelpers/AppError";
 import { ParticipationService } from "./participation.service";
 import { ParticipationStatus } from "../../../generated/prisma/enums";
+import { IQueryParams } from "../../interfaces/query.interface";
 
 
 
@@ -12,14 +13,15 @@ import { ParticipationStatus } from "../../../generated/prisma/enums";
 
 const getMyEvents = catchAsync(async (req: Request, res: Response) => {
      const user = req.user!;
+     const query = req.query;
 
-     const result = await ParticipationService.getMyEvents(user);
+     const result = await ParticipationService.getMyEvents(user, query as IQueryParams);
 
      sendResponse(res, {
           httpStatusCode: status.OK,
           success: true,
           message:
-               result.length === 0
+               result.data.length === 0
                     ? "You have not joined any events yet."
                     : "My events fetched",
           data: result,

@@ -1179,6 +1179,13 @@ var getAllEvents = async (query) => {
   }).sort().paginate().execute();
   return result;
 };
+var getMyEvents = async (user, query) => {
+  const queryBuilder = new QueryBuilder(prisma.event, query);
+  const result = await queryBuilder.where({
+    organizerId: user.userId
+  }).sort().paginate().execute();
+  return result;
+};
 var getSingleEventPublic = async (user, eventId) => {
   const participation = await prisma.participation.findFirst({
     where: {
@@ -1278,16 +1285,6 @@ var organizersSingleEventById = async (id) => {
     throw new AppError_default(status8.NOT_FOUND, "Event not found");
   }
   return event;
-};
-var getMyEvents = async (user) => {
-  return prisma.event.findMany({
-    where: {
-      organizerId: user.userId
-    },
-    orderBy: {
-      createdAt: "desc"
-    }
-  });
 };
 var updateEvent = async (id, user, payload) => {
   const event = await prisma.event.findUnique({ where: { id } });
@@ -1404,11 +1401,12 @@ var organizersSingleEventById2 = catchAsync(async (req, res) => {
   });
 });
 var getMyEvents2 = catchAsync(async (req, res) => {
+  const query = req.query;
   const user = req.user;
   if (!user) {
     throw new AppError_default(status9.UNAUTHORIZED, "Unauthorized");
   }
-  const result = await EventService.getMyEvents(user);
+  const result = await EventService.getMyEvents(user, query);
   sendResponse(res, {
     httpStatusCode: status9.OK,
     success: true,
@@ -1487,93 +1485,109 @@ import status11 from "http-status";
 
 // src/app/module/participation/participation.service.ts
 import status10 from "http-status";
-var getMyEvents3 = async (user) => {
+var getMyEvents3 = async (user, query) => {
   if (!user?.userId) {
     throw new AppError_default(status10.UNAUTHORIZED, "Unauthorized");
   }
-  const approvedEvents = await prisma.participation.findMany({
-    where: {
-      userId: user.userId,
-      OR: [
-        { status: ParticipationStatus.APPROVED },
-        {
-          payment: {
-            some: {
-              status: PaymentStatus.SUCCESS
-            }
+  const approvedQB = new QueryBuilder(
+    prisma.participation,
+    query
+  ).where({
+    userId: user.userId,
+    OR: [
+      { status: ParticipationStatus.APPROVED },
+      {
+        payment: {
+          some: {
+            status: PaymentStatus.SUCCESS
           }
         }
-      ]
-    },
-    include: {
-      event: {
-        select: {
-          id: true,
-          title: true,
-          description: true,
-          venue: true,
-          dateTime: true,
-          type: true,
-          fee: true,
-          images: true,
-          meetingLink: true,
-          organizer: {
-            select: {
-              id: true,
-              name: true
-            }
+      }
+    ]
+  }).include({
+    event: {
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        venue: true,
+        dateTime: true,
+        type: true,
+        fee: true,
+        images: true,
+        meetingLink: true,
+        organizer: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        reviews: {
+          where: {
+            userId: user.userId
           },
-          reviews: {
-            where: {
-              userId: user.userId
-            },
-            select: {
-              id: true
-            }
+          select: {
+            id: true
           }
-        }
-      },
-      ticket: true,
-      payment: {
-        select: {
-          id: true,
-          amount: true,
-          status: true,
-          createdAt: true,
-          invoiceUrl: true,
-          transactionId: true
-        }
-      }
-    }
-  });
-  const pendingEvents = await prisma.participation.findMany({
-    where: {
-      userId: user.userId,
-      status: ParticipationStatus.PENDING,
-      payment: {
-        none: {
-          status: PaymentStatus.SUCCESS
         }
       }
     },
-    include: {
-      event: {
-        select: {
-          id: true,
-          title: true,
-          dateTime: true,
-          type: true,
-          venue: true,
-          fee: true,
-          images: true
-        }
+    ticket: true,
+    payment: {
+      select: {
+        id: true,
+        amount: true,
+        status: true,
+        createdAt: true,
+        invoiceUrl: true,
+        transactionId: true
       }
     }
-  });
-  const result = [...approvedEvents, ...pendingEvents].sort(
-    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+  }).sort().paginate();
+  const approvedResult = await approvedQB.execute();
+  const pendingQB = new QueryBuilder(
+    prisma.participation,
+    query
+  ).where({
+    userId: user.userId,
+    status: ParticipationStatus.PENDING,
+    payment: {
+      none: {
+        status: PaymentStatus.SUCCESS
+      }
+    }
+  }).include({
+    event: {
+      select: {
+        id: true,
+        title: true,
+        dateTime: true,
+        type: true,
+        venue: true,
+        fee: true,
+        images: true
+      }
+    }
+  }).sort().paginate();
+  const pendingResult = await pendingQB.execute();
+  const mergedData = [
+    ...approvedResult.data,
+    ...pendingResult.data
+  ].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
-  return result;
+  const total = approvedResult.meta.total + pendingResult.meta.total;
+  const limit = approvedResult.meta.limit;
+  const page = approvedResult.meta.page;
+  return {
+    data: mergedData,
+    meta: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
 };
 var getEventParticipants = async (user, eventId) => {
   const event = await prisma.event.findUnique({
@@ -1702,11 +1716,12 @@ var ParticipationService = {
 // src/app/module/participation/participation.controller.ts
 var getMyEvents4 = catchAsync(async (req, res) => {
   const user = req.user;
-  const result = await ParticipationService.getMyEvents(user);
+  const query = req.query;
+  const result = await ParticipationService.getMyEvents(user, query);
   sendResponse(res, {
     httpStatusCode: status11.OK,
     success: true,
-    message: result.length === 0 ? "You have not joined any events yet." : "My events fetched",
+    message: result.data.length === 0 ? "You have not joined any events yet." : "My events fetched",
     data: result
   });
 });
@@ -1837,22 +1852,29 @@ var getEventInvitations = async (user, eventId) => {
     include: { user: true }
   });
 };
-var getMyInvitations = async (user) => {
-  return prisma.invitation.findMany({
-    where: { userId: user.userId },
-    include: {
-      event: {
-        select: {
-          id: true,
-          title: true,
-          dateTime: true,
-          type: true,
-          fee: true,
-          images: true
-        }
+var getMyInvitations = async (user, query) => {
+  if (!user?.userId) {
+    throw new AppError_default(status12.UNAUTHORIZED, "Unauthorized");
+  }
+  const queryBuilder = new QueryBuilder(
+    prisma.invitation,
+    query
+  );
+  const result = await queryBuilder.where({
+    userId: user.userId
+  }).include({
+    event: {
+      select: {
+        id: true,
+        title: true,
+        dateTime: true,
+        type: true,
+        fee: true,
+        images: true
       }
     }
-  });
+  }).sort().paginate().execute();
+  return result;
 };
 var cancelInvitation = async (user, invitationId) => {
   if (!user?.userId) {
@@ -1911,7 +1933,8 @@ var getEventInvitations2 = catchAsync(async (req, res) => {
 });
 var getMyInvitations2 = catchAsync(async (req, res) => {
   const user = req.user;
-  const result = await InvitationService.getMyInvitations(user);
+  const query = req.query;
+  const result = await InvitationService.getMyInvitations(user, query);
   sendResponse(res, {
     httpStatusCode: status13.OK,
     success: true,
@@ -2577,91 +2600,92 @@ var handleStripeWebhookEvent = async (event) => {
   }
   return { message: "Webhook processed" };
 };
-var getMyPayments = async (user) => {
-  const payments = await prisma.payment.findMany({
-    where: {
-      userId: user.userId
-    },
-    include: {
-      participation: {
-        include: {
-          event: true
-        }
-      },
-      invitation: {
-        include: {
-          event: true
-        }
-      }
-    },
-    orderBy: {
-      createdAt: "desc"
-    }
-  });
-  return payments;
-};
-var getOrganizerPayments = async (user) => {
-  const payments = await prisma.payment.findMany({
-    where: {
-      OR: [
-        {
-          participation: {
-            event: {
-              organizerId: user.userId
-            }
-          }
-        },
-        {
-          invitation: {
-            event: {
-              organizerId: user.userId
-            }
-          }
-        }
-      ]
-    },
-    include: {
-      user: true,
-      participation: {
-        include: {
-          event: true
-        }
-      },
-      invitation: {
-        include: {
-          event: true
-        }
-      }
-    },
-    orderBy: {
-      createdAt: "desc"
-    }
-  });
-  return payments;
-};
-var getAllPayments = async (user) => {
-  if (user.role !== "ADMIN") {
-    throw new Error("Unauthorized access");
+var getMyPayments = async (user, query) => {
+  if (!user?.userId) {
+    throw new AppError_default(status16.UNAUTHORIZED, "Unauthorized");
   }
-  const payments = await prisma.payment.findMany({
-    include: {
-      user: true,
-      participation: {
-        include: {
-          event: true
-        }
-      },
-      invitation: {
-        include: {
-          event: true
-        }
+  const queryBuilder = new QueryBuilder(
+    prisma.payment,
+    query
+  );
+  const result = await queryBuilder.where({
+    userId: user.userId
+  }).include({
+    participation: {
+      include: {
+        event: true
       }
     },
-    orderBy: {
-      createdAt: "desc"
+    invitation: {
+      include: {
+        event: true
+      }
     }
-  });
-  return payments;
+  }).sort().paginate().execute();
+  return result;
+};
+var getOrganizerPayments = async (user, query) => {
+  if (!user?.userId) {
+    throw new AppError_default(status16.UNAUTHORIZED, "Unauthorized");
+  }
+  const queryBuilder = new QueryBuilder(
+    prisma.payment,
+    query
+  );
+  const result = await queryBuilder.where({
+    OR: [
+      {
+        participation: {
+          event: {
+            organizerId: user.userId
+          }
+        }
+      },
+      {
+        invitation: {
+          event: {
+            organizerId: user.userId
+          }
+        }
+      }
+    ]
+  }).include({
+    user: true,
+    participation: {
+      include: {
+        event: true
+      }
+    },
+    invitation: {
+      include: {
+        event: true
+      }
+    }
+  }).sort().paginate().execute();
+  return result;
+};
+var getAllPayments = async (user, query) => {
+  if (user.role !== "ADMIN") {
+    throw new AppError_default(status16.UNAUTHORIZED, "Unauthorized access");
+  }
+  const queryBuilder = new QueryBuilder(
+    prisma.payment,
+    query
+  );
+  const result = await queryBuilder.include({
+    user: true,
+    participation: {
+      include: {
+        event: true
+      }
+    },
+    invitation: {
+      include: {
+        event: true
+      }
+    }
+  }).sort().paginate().execute();
+  return result;
 };
 var PaymentService = {
   initiatePayment,
@@ -2702,7 +2726,8 @@ var handleStripeWebhookEvent2 = catchAsync(
 );
 var getMyPayments2 = catchAsync(async (req, res) => {
   const user = req.user;
-  const result = await PaymentService.getMyPayments(user);
+  const query = req.query;
+  const result = await PaymentService.getMyPayments(user, query);
   sendResponse(res, {
     httpStatusCode: status17.OK,
     success: true,
@@ -2712,7 +2737,8 @@ var getMyPayments2 = catchAsync(async (req, res) => {
 });
 var getOrganizerPayments2 = catchAsync(async (req, res) => {
   const user = req.user;
-  const result = await PaymentService.getOrganizerPayments(user);
+  const query = req.query;
+  const result = await PaymentService.getOrganizerPayments(user, query);
   sendResponse(res, {
     httpStatusCode: status17.OK,
     success: true,
@@ -2722,7 +2748,8 @@ var getOrganizerPayments2 = catchAsync(async (req, res) => {
 });
 var getAllPayments2 = catchAsync(async (req, res) => {
   const user = req.user;
-  const result = await PaymentService.getAllPayments(user);
+  const query = req.query;
+  const result = await PaymentService.getAllPayments(user, query);
   sendResponse(res, {
     httpStatusCode: status17.OK,
     success: true,
@@ -2907,23 +2934,33 @@ import status22 from "http-status";
 
 // src/app/module/admin/admin.service.ts
 import status21 from "http-status";
-var getAllUsers = async () => {
-  return prisma.user.findMany({
-    where: {
-      isDeleted: false,
-      role: "USER"
-    },
-    orderBy: { createdAt: "desc" }
-  });
+var getAllUsers = async (user, query) => {
+  if (user.role !== "ADMIN") {
+    throw new AppError_default(status21.UNAUTHORIZED, "Unauthorized access");
+  }
+  const queryBuilder = new QueryBuilder(
+    prisma.user,
+    query
+  );
+  const result = await queryBuilder.where({
+    isDeleted: false,
+    role: "USER"
+  }).sort().paginate().execute();
+  return result;
 };
-var getAllAdmins = async () => {
-  return prisma.user.findMany({
-    where: {
-      isDeleted: false,
-      role: "ADMIN"
-    },
-    orderBy: { createdAt: "desc" }
-  });
+var getAllAdmins = async (user, query) => {
+  if (user.role !== "ADMIN") {
+    throw new AppError_default(status21.UNAUTHORIZED, "Unauthorized access");
+  }
+  const queryBuilder = new QueryBuilder(
+    prisma.user,
+    query
+  );
+  const result = await queryBuilder.where({
+    isDeleted: false,
+    role: "ADMIN"
+  }).sort().paginate().execute();
+  return result;
 };
 var getSingleUser = async (id) => {
   const user = await prisma.user.findUnique({
@@ -3064,7 +3101,10 @@ var AdminService = {
 
 // src/app/module/admin/admin.controller.ts
 var getAllUsers2 = catchAsync(async (req, res) => {
-  const result = await AdminService.getAllUsers();
+  const user = req.user;
+  if (!user) throw new AppError_default(status22.UNAUTHORIZED, "Unauthorized");
+  const query = req.query;
+  const result = await AdminService.getAllUsers(user, query);
   sendResponse(res, {
     httpStatusCode: status22.OK,
     success: true,
@@ -3073,7 +3113,10 @@ var getAllUsers2 = catchAsync(async (req, res) => {
   });
 });
 var getAllAdmins2 = catchAsync(async (req, res) => {
-  const result = await AdminService.getAllAdmins();
+  const user = req.user;
+  if (!user) throw new AppError_default(status22.UNAUTHORIZED, "Unauthorized");
+  const query = req.query;
+  const result = await AdminService.getAllAdmins(user, query);
   sendResponse(res, {
     httpStatusCode: status22.OK,
     success: true,
@@ -3693,12 +3736,20 @@ import status32 from "http-status";
 
 // src/app/module/ticket/ticket.service.ts
 import status31 from "http-status";
-var getUserTickets = async (userId) => {
-  return prisma.ticket.findMany({
-    where: { userId },
-    include: { event: true },
-    orderBy: { createdAt: "desc" }
-  });
+var getUserTickets = async (userId, query) => {
+  if (!userId) {
+    throw new AppError_default(status31.BAD_REQUEST, "UserId is required");
+  }
+  const queryBuilder = new QueryBuilder(
+    prisma.ticket,
+    query
+  );
+  const result = await queryBuilder.where({
+    userId
+  }).include({
+    event: true
+  }).sort().paginate().execute();
+  return result;
 };
 var getEventTickets = async (eventId) => {
   return prisma.ticket.findMany({
@@ -3745,7 +3796,8 @@ var TicketService = {
 // src/app/module/ticket/ticket.controller.ts
 var getMyTickets = catchAsync(async (req, res) => {
   const user = req.user;
-  const result = await TicketService.getUserTickets(user.userId);
+  const query = req.query;
+  const result = await TicketService.getUserTickets(user.userId, query);
   sendResponse(res, {
     httpStatusCode: status32.OK,
     success: true,

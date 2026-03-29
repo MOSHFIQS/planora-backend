@@ -1,19 +1,12 @@
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 import { cloudinaryUpload } from "./cloudinary.config";
-import AppError from "../errorHelpers/AppError";
 
 const storage = new CloudinaryStorage({
     cloudinary: cloudinaryUpload,
     params: async (req, file) => {
         const originalName = file.originalname;
-        const extension = originalName.split(".").pop()?.toLowerCase();
-
-        const allowedExtensions = ["jpg", "jpeg", "png", "webp", "gif"];
-
-        if (!extension || !allowedExtensions.includes(extension)) {
-            throw new AppError(400, "Only image files are allowed");
-        }
+        const extension = originalName.split(".").pop()?.toLocaleLowerCase();
 
         const fileNameWithoutExtension = originalName
             .split(".")
@@ -21,21 +14,26 @@ const storage = new CloudinaryStorage({
             .join(".")
             .toLowerCase()
             .replace(/\s+/g, "-")
-            .replace(/[^a-z0-9-]/g, "");
+            // eslint-disable-next-line no-useless-escape
+            .replace(/[^a-z0-9\-]/g, "");
 
         const uniqueName =
-            Math.random().toString(36).substring(2) +
-            "-" +
-            Date.now() +
-            "-" +
+            Math.random().toString(36).substring(2)+
+            "-"+
+            Date.now()+
+            "-"+
             fileNameWithoutExtension;
 
+        const folder = extension === "pdf" ? "pdfs" : "images";
+
+
         return {
-            folder: "planora/images",
+            folder : `planora/${folder}`,
             public_id: uniqueName,
-            resource_type: "image", // force image only
-        };
-    },
-});
+            resource_type : "auto"
+        }
+    }
+
+})
 
 export const multerUpload = multer({storage})

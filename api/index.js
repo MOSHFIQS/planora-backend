@@ -1,10 +1,336 @@
+var __defProp = Object.defineProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+
 // src/app.ts
 import cookieParser from "cookie-parser";
 import express from "express";
 
 // src/app/middleware/globalErrorHandler.ts
-import status3 from "http-status";
+import status4 from "http-status";
 import z from "zod";
+
+// src/generated/prisma/client.ts
+import * as path from "path";
+import { fileURLToPath } from "url";
+
+// src/generated/prisma/internal/class.ts
+import * as runtime from "@prisma/client/runtime/client";
+var config = {
+  "previewFeatures": [],
+  "clientVersion": "7.3.0",
+  "engineVersion": "9d6ad21cbbceab97458517b147a6a09ff43aa735",
+  "activeProvider": "postgresql",
+  "inlineSchema": 'model User {\n  id            String  @id @default(cuid())\n  name          String\n  email         String  @unique\n  emailVerified Boolean @default(false)\n\n  role   Role       @default(USER)\n  status UserStatus @default(ACTIVE)\n\n  isDeleted Boolean   @default(false)\n  deletedAt DateTime?\n\n  image String?\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  // Better Auth relations\n  sessions Session[]\n  accounts Account[]\n\n  // Planora relations\n  events         Event[]         @relation("OrganizerEvents")\n  participations Participation[]\n  invitations    Invitation[]\n  reviews        Review[]\n  payments       Payment[]\n  tickets        Ticket[]\n\n  @@map("user")\n}\n\nmodel Session {\n  id        String   @id\n  expiresAt DateTime\n  token     String\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n  ipAddress String?\n  userAgent String?\n  userId    String\n  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)\n\n  @@unique([token])\n  @@index([userId])\n  @@map("session")\n}\n\nmodel Account {\n  id                    String    @id\n  accountId             String\n  providerId            String\n  userId                String\n  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)\n  accessToken           String?\n  refreshToken          String?\n  idToken               String?\n  accessTokenExpiresAt  DateTime?\n  refreshTokenExpiresAt DateTime?\n  scope                 String?\n  password              String?\n  createdAt             DateTime  @default(now())\n  updatedAt             DateTime  @updatedAt\n\n  @@index([userId])\n  @@map("account")\n}\n\nmodel Verification {\n  id         String   @id\n  identifier String\n  value      String\n  expiresAt  DateTime\n  createdAt  DateTime @default(now())\n  updatedAt  DateTime @updatedAt\n\n  @@index([identifier])\n  @@map("verification")\n}\n\nmodel Banner {\n  id String @id @default(uuid())\n\n  title       String\n  description String?\n\n  image       String\n  redirectUrl String?\n\n  dateTime DateTime?\n  type     EventType @default(ONLINE)\n\n  position      BannerPosition\n  positionOrder Int\n\n  buttonText String?\n  altText    String?\n\n  isActive Boolean @default(true)\n\n  isDeleted Boolean   @default(false)\n  deletedAt DateTime?\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  @@index([position])\n  @@index([isActive])\n  @@map("banner")\n}\n\nmodel Category {\n  id          String  @id @default(uuid())\n  name        String\n  description String?\n  image       String?\n\n  isDeleted Boolean   @default(false)\n  deletedAt DateTime?\n  events    Event[]\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  @@index([name])\n  @@map("category")\n}\n\nenum Role {\n  USER\n  ADMIN\n}\n\nenum UserStatus {\n  ACTIVE\n  SUSPENDED\n}\n\nenum EventVisibility {\n  PUBLIC\n  PRIVATE\n}\n\nenum EventType {\n  ONLINE\n  OFFLINE\n}\n\nenum ParticipationStatus {\n  PENDING\n  APPROVED\n  REJECTED\n  BANNED\n}\n\nenum InvitationStatus {\n  PENDING\n  ACCEPTED\n  DECLINED\n}\n\nenum PaymentStatus {\n  PENDING\n  SUCCESS\n  FAILED\n  REFUNDED\n  CANCELED\n  UNPAID\n}\n\nenum TicketStatus {\n  VALID\n  USED\n  CANCELED\n}\n\nenum BannerPosition {\n  MAIN\n  SECONDARY\n  THIRD\n}\n\nmodel Event {\n  id          String   @id @default(cuid())\n  title       String\n  description String\n  venue       String?\n  dateTime    DateTime\n\n  visibility EventVisibility\n  type       EventType       @default(ONLINE)\n\n  meetingLink String?\n\n  fee Float @default(0)\n\n  images String[]\n\n  categoryId String?\n  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)\n\n  organizerId String\n  organizer   User   @relation("OrganizerEvents", fields: [organizerId], references: [id])\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  participations Participation[]\n  invitations    Invitation[]\n  reviews        Review[]\n  tickets        Ticket[]\n\n  @@index([organizerId])\n  @@index([visibility])\n  @@index([dateTime])\n  @@map("event")\n}\n\nmodel Invitation {\n  id String @id @default(cuid())\n\n  eventId String\n  userId  String\n\n  status InvitationStatus @default(PENDING)\n\n  createdAt DateTime @default(now())\n\n  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)\n  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)\n\n  payment Payment[]\n\n  @@unique([eventId, userId])\n  @@index([eventId])\n  @@index([status])\n  @@map("invitation")\n}\n\nmodel Participation {\n  id String @id @default(cuid())\n\n  userId  String\n  eventId String\n\n  status ParticipationStatus @default(PENDING)\n\n  createdAt DateTime @default(now())\n\n  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)\n  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)\n\n  payment Payment[]\n  ticket  Ticket?\n\n  @@unique([userId, eventId])\n  @@index([eventId])\n  @@index([status])\n  @@map("participation")\n}\n\nmodel Payment {\n  id            String  @id @default(uuid())\n  amount        Float\n  transactionId String  @unique @db.Uuid()\n  stripeEventId String? @unique\n\n  status PaymentStatus @default(PENDING)\n\n  userId String\n  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)\n\n  invoiceUrl         String?\n  paymentGatewayData Json?\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  participationId String?\n  participation   Participation? @relation(fields: [participationId], references: [id], onDelete: Cascade)\n\n  invitationId String?\n  invitation   Invitation? @relation(fields: [invitationId], references: [id], onDelete: Cascade)\n\n  @@index([participationId])\n  @@index([invitationId])\n  @@index([transactionId])\n  @@map("payment")\n}\n\nmodel Review {\n  id String @id @default(cuid())\n\n  rating  Int\n  comment String?\n\n  userId  String\n  eventId String\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)\n  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)\n\n  @@unique([userId, eventId])\n  @@index([eventId])\n  @@map("review")\n}\n\n// This is your Prisma schema file,\n// learn more about it in the docs: https://pris.ly/d/prisma-schema\n\n// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?\n// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init\n\ngenerator client {\n  provider = "prisma-client"\n  output   = "../../src/generated/prisma"\n}\n\ndatasource db {\n  provider = "postgresql"\n}\n\nmodel Ticket {\n  id String @id @default(cuid())\n\n  userId  String\n  eventId String\n\n  participationId String? @unique\n\n  qrCode String @unique\n\n  status TicketStatus @default(VALID)\n\n  checkedInAt DateTime?\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)\n  event         Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)\n  participation Participation? @relation(fields: [participationId], references: [id], onDelete: Cascade)\n\n  @@index([eventId])\n  @@index([userId])\n  @@map("ticket")\n}\n',
+  "runtimeDataModel": {
+    "models": {},
+    "enums": {},
+    "types": {}
+  }
+};
+config.runtimeDataModel = JSON.parse('{"models":{"User":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"name","kind":"scalar","type":"String"},{"name":"email","kind":"scalar","type":"String"},{"name":"emailVerified","kind":"scalar","type":"Boolean"},{"name":"role","kind":"enum","type":"Role"},{"name":"status","kind":"enum","type":"UserStatus"},{"name":"isDeleted","kind":"scalar","type":"Boolean"},{"name":"deletedAt","kind":"scalar","type":"DateTime"},{"name":"image","kind":"scalar","type":"String"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"},{"name":"sessions","kind":"object","type":"Session","relationName":"SessionToUser"},{"name":"accounts","kind":"object","type":"Account","relationName":"AccountToUser"},{"name":"events","kind":"object","type":"Event","relationName":"OrganizerEvents"},{"name":"participations","kind":"object","type":"Participation","relationName":"ParticipationToUser"},{"name":"invitations","kind":"object","type":"Invitation","relationName":"InvitationToUser"},{"name":"reviews","kind":"object","type":"Review","relationName":"ReviewToUser"},{"name":"payments","kind":"object","type":"Payment","relationName":"PaymentToUser"},{"name":"tickets","kind":"object","type":"Ticket","relationName":"TicketToUser"}],"dbName":"user"},"Session":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"expiresAt","kind":"scalar","type":"DateTime"},{"name":"token","kind":"scalar","type":"String"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"},{"name":"ipAddress","kind":"scalar","type":"String"},{"name":"userAgent","kind":"scalar","type":"String"},{"name":"userId","kind":"scalar","type":"String"},{"name":"user","kind":"object","type":"User","relationName":"SessionToUser"}],"dbName":"session"},"Account":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"accountId","kind":"scalar","type":"String"},{"name":"providerId","kind":"scalar","type":"String"},{"name":"userId","kind":"scalar","type":"String"},{"name":"user","kind":"object","type":"User","relationName":"AccountToUser"},{"name":"accessToken","kind":"scalar","type":"String"},{"name":"refreshToken","kind":"scalar","type":"String"},{"name":"idToken","kind":"scalar","type":"String"},{"name":"accessTokenExpiresAt","kind":"scalar","type":"DateTime"},{"name":"refreshTokenExpiresAt","kind":"scalar","type":"DateTime"},{"name":"scope","kind":"scalar","type":"String"},{"name":"password","kind":"scalar","type":"String"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"}],"dbName":"account"},"Verification":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"identifier","kind":"scalar","type":"String"},{"name":"value","kind":"scalar","type":"String"},{"name":"expiresAt","kind":"scalar","type":"DateTime"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"}],"dbName":"verification"},"Banner":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"title","kind":"scalar","type":"String"},{"name":"description","kind":"scalar","type":"String"},{"name":"image","kind":"scalar","type":"String"},{"name":"redirectUrl","kind":"scalar","type":"String"},{"name":"dateTime","kind":"scalar","type":"DateTime"},{"name":"type","kind":"enum","type":"EventType"},{"name":"position","kind":"enum","type":"BannerPosition"},{"name":"positionOrder","kind":"scalar","type":"Int"},{"name":"buttonText","kind":"scalar","type":"String"},{"name":"altText","kind":"scalar","type":"String"},{"name":"isActive","kind":"scalar","type":"Boolean"},{"name":"isDeleted","kind":"scalar","type":"Boolean"},{"name":"deletedAt","kind":"scalar","type":"DateTime"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"}],"dbName":"banner"},"Category":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"name","kind":"scalar","type":"String"},{"name":"description","kind":"scalar","type":"String"},{"name":"image","kind":"scalar","type":"String"},{"name":"isDeleted","kind":"scalar","type":"Boolean"},{"name":"deletedAt","kind":"scalar","type":"DateTime"},{"name":"events","kind":"object","type":"Event","relationName":"CategoryToEvent"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"}],"dbName":"category"},"Event":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"title","kind":"scalar","type":"String"},{"name":"description","kind":"scalar","type":"String"},{"name":"venue","kind":"scalar","type":"String"},{"name":"dateTime","kind":"scalar","type":"DateTime"},{"name":"visibility","kind":"enum","type":"EventVisibility"},{"name":"type","kind":"enum","type":"EventType"},{"name":"meetingLink","kind":"scalar","type":"String"},{"name":"fee","kind":"scalar","type":"Float"},{"name":"images","kind":"scalar","type":"String"},{"name":"categoryId","kind":"scalar","type":"String"},{"name":"category","kind":"object","type":"Category","relationName":"CategoryToEvent"},{"name":"organizerId","kind":"scalar","type":"String"},{"name":"organizer","kind":"object","type":"User","relationName":"OrganizerEvents"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"},{"name":"participations","kind":"object","type":"Participation","relationName":"EventToParticipation"},{"name":"invitations","kind":"object","type":"Invitation","relationName":"EventToInvitation"},{"name":"reviews","kind":"object","type":"Review","relationName":"EventToReview"},{"name":"tickets","kind":"object","type":"Ticket","relationName":"EventToTicket"}],"dbName":"event"},"Invitation":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"eventId","kind":"scalar","type":"String"},{"name":"userId","kind":"scalar","type":"String"},{"name":"status","kind":"enum","type":"InvitationStatus"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"event","kind":"object","type":"Event","relationName":"EventToInvitation"},{"name":"user","kind":"object","type":"User","relationName":"InvitationToUser"},{"name":"payment","kind":"object","type":"Payment","relationName":"InvitationToPayment"}],"dbName":"invitation"},"Participation":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"userId","kind":"scalar","type":"String"},{"name":"eventId","kind":"scalar","type":"String"},{"name":"status","kind":"enum","type":"ParticipationStatus"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"user","kind":"object","type":"User","relationName":"ParticipationToUser"},{"name":"event","kind":"object","type":"Event","relationName":"EventToParticipation"},{"name":"payment","kind":"object","type":"Payment","relationName":"ParticipationToPayment"},{"name":"ticket","kind":"object","type":"Ticket","relationName":"ParticipationToTicket"}],"dbName":"participation"},"Payment":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"amount","kind":"scalar","type":"Float"},{"name":"transactionId","kind":"scalar","type":"String"},{"name":"stripeEventId","kind":"scalar","type":"String"},{"name":"status","kind":"enum","type":"PaymentStatus"},{"name":"userId","kind":"scalar","type":"String"},{"name":"user","kind":"object","type":"User","relationName":"PaymentToUser"},{"name":"invoiceUrl","kind":"scalar","type":"String"},{"name":"paymentGatewayData","kind":"scalar","type":"Json"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"},{"name":"participationId","kind":"scalar","type":"String"},{"name":"participation","kind":"object","type":"Participation","relationName":"ParticipationToPayment"},{"name":"invitationId","kind":"scalar","type":"String"},{"name":"invitation","kind":"object","type":"Invitation","relationName":"InvitationToPayment"}],"dbName":"payment"},"Review":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"rating","kind":"scalar","type":"Int"},{"name":"comment","kind":"scalar","type":"String"},{"name":"userId","kind":"scalar","type":"String"},{"name":"eventId","kind":"scalar","type":"String"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"},{"name":"user","kind":"object","type":"User","relationName":"ReviewToUser"},{"name":"event","kind":"object","type":"Event","relationName":"EventToReview"}],"dbName":"review"},"Ticket":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"userId","kind":"scalar","type":"String"},{"name":"eventId","kind":"scalar","type":"String"},{"name":"participationId","kind":"scalar","type":"String"},{"name":"qrCode","kind":"scalar","type":"String"},{"name":"status","kind":"enum","type":"TicketStatus"},{"name":"checkedInAt","kind":"scalar","type":"DateTime"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"},{"name":"user","kind":"object","type":"User","relationName":"TicketToUser"},{"name":"event","kind":"object","type":"Event","relationName":"EventToTicket"},{"name":"participation","kind":"object","type":"Participation","relationName":"ParticipationToTicket"}],"dbName":"ticket"}},"enums":{},"types":{}}');
+async function decodeBase64AsWasm(wasmBase64) {
+  const { Buffer: Buffer2 } = await import("buffer");
+  const wasmArray = Buffer2.from(wasmBase64, "base64");
+  return new WebAssembly.Module(wasmArray);
+}
+config.compilerWasm = {
+  getRuntime: async () => await import("@prisma/client/runtime/query_compiler_fast_bg.postgresql.mjs"),
+  getQueryCompilerWasmModule: async () => {
+    const { wasm } = await import("@prisma/client/runtime/query_compiler_fast_bg.postgresql.wasm-base64.mjs");
+    return await decodeBase64AsWasm(wasm);
+  },
+  importName: "./query_compiler_fast_bg.js"
+};
+function getPrismaClientClass() {
+  return runtime.getPrismaClient(config);
+}
+
+// src/generated/prisma/internal/prismaNamespace.ts
+var prismaNamespace_exports = {};
+__export(prismaNamespace_exports, {
+  AccountScalarFieldEnum: () => AccountScalarFieldEnum,
+  AnyNull: () => AnyNull2,
+  BannerScalarFieldEnum: () => BannerScalarFieldEnum,
+  CategoryScalarFieldEnum: () => CategoryScalarFieldEnum,
+  DbNull: () => DbNull2,
+  Decimal: () => Decimal2,
+  EventScalarFieldEnum: () => EventScalarFieldEnum,
+  InvitationScalarFieldEnum: () => InvitationScalarFieldEnum,
+  JsonNull: () => JsonNull2,
+  JsonNullValueFilter: () => JsonNullValueFilter,
+  ModelName: () => ModelName,
+  NullTypes: () => NullTypes2,
+  NullableJsonNullValueInput: () => NullableJsonNullValueInput,
+  NullsOrder: () => NullsOrder,
+  ParticipationScalarFieldEnum: () => ParticipationScalarFieldEnum,
+  PaymentScalarFieldEnum: () => PaymentScalarFieldEnum,
+  PrismaClientInitializationError: () => PrismaClientInitializationError2,
+  PrismaClientKnownRequestError: () => PrismaClientKnownRequestError2,
+  PrismaClientRustPanicError: () => PrismaClientRustPanicError2,
+  PrismaClientUnknownRequestError: () => PrismaClientUnknownRequestError2,
+  PrismaClientValidationError: () => PrismaClientValidationError2,
+  QueryMode: () => QueryMode,
+  ReviewScalarFieldEnum: () => ReviewScalarFieldEnum,
+  SessionScalarFieldEnum: () => SessionScalarFieldEnum,
+  SortOrder: () => SortOrder,
+  Sql: () => Sql2,
+  TicketScalarFieldEnum: () => TicketScalarFieldEnum,
+  TransactionIsolationLevel: () => TransactionIsolationLevel,
+  UserScalarFieldEnum: () => UserScalarFieldEnum,
+  VerificationScalarFieldEnum: () => VerificationScalarFieldEnum,
+  defineExtension: () => defineExtension,
+  empty: () => empty2,
+  getExtensionContext: () => getExtensionContext,
+  join: () => join2,
+  prismaVersion: () => prismaVersion,
+  raw: () => raw2,
+  sql: () => sql
+});
+import * as runtime2 from "@prisma/client/runtime/client";
+var PrismaClientKnownRequestError2 = runtime2.PrismaClientKnownRequestError;
+var PrismaClientUnknownRequestError2 = runtime2.PrismaClientUnknownRequestError;
+var PrismaClientRustPanicError2 = runtime2.PrismaClientRustPanicError;
+var PrismaClientInitializationError2 = runtime2.PrismaClientInitializationError;
+var PrismaClientValidationError2 = runtime2.PrismaClientValidationError;
+var sql = runtime2.sqltag;
+var empty2 = runtime2.empty;
+var join2 = runtime2.join;
+var raw2 = runtime2.raw;
+var Sql2 = runtime2.Sql;
+var Decimal2 = runtime2.Decimal;
+var getExtensionContext = runtime2.Extensions.getExtensionContext;
+var prismaVersion = {
+  client: "7.3.0",
+  engine: "9d6ad21cbbceab97458517b147a6a09ff43aa735"
+};
+var NullTypes2 = {
+  DbNull: runtime2.NullTypes.DbNull,
+  JsonNull: runtime2.NullTypes.JsonNull,
+  AnyNull: runtime2.NullTypes.AnyNull
+};
+var DbNull2 = runtime2.DbNull;
+var JsonNull2 = runtime2.JsonNull;
+var AnyNull2 = runtime2.AnyNull;
+var ModelName = {
+  User: "User",
+  Session: "Session",
+  Account: "Account",
+  Verification: "Verification",
+  Banner: "Banner",
+  Category: "Category",
+  Event: "Event",
+  Invitation: "Invitation",
+  Participation: "Participation",
+  Payment: "Payment",
+  Review: "Review",
+  Ticket: "Ticket"
+};
+var TransactionIsolationLevel = runtime2.makeStrictEnum({
+  ReadUncommitted: "ReadUncommitted",
+  ReadCommitted: "ReadCommitted",
+  RepeatableRead: "RepeatableRead",
+  Serializable: "Serializable"
+});
+var UserScalarFieldEnum = {
+  id: "id",
+  name: "name",
+  email: "email",
+  emailVerified: "emailVerified",
+  role: "role",
+  status: "status",
+  isDeleted: "isDeleted",
+  deletedAt: "deletedAt",
+  image: "image",
+  createdAt: "createdAt",
+  updatedAt: "updatedAt"
+};
+var SessionScalarFieldEnum = {
+  id: "id",
+  expiresAt: "expiresAt",
+  token: "token",
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
+  ipAddress: "ipAddress",
+  userAgent: "userAgent",
+  userId: "userId"
+};
+var AccountScalarFieldEnum = {
+  id: "id",
+  accountId: "accountId",
+  providerId: "providerId",
+  userId: "userId",
+  accessToken: "accessToken",
+  refreshToken: "refreshToken",
+  idToken: "idToken",
+  accessTokenExpiresAt: "accessTokenExpiresAt",
+  refreshTokenExpiresAt: "refreshTokenExpiresAt",
+  scope: "scope",
+  password: "password",
+  createdAt: "createdAt",
+  updatedAt: "updatedAt"
+};
+var VerificationScalarFieldEnum = {
+  id: "id",
+  identifier: "identifier",
+  value: "value",
+  expiresAt: "expiresAt",
+  createdAt: "createdAt",
+  updatedAt: "updatedAt"
+};
+var BannerScalarFieldEnum = {
+  id: "id",
+  title: "title",
+  description: "description",
+  image: "image",
+  redirectUrl: "redirectUrl",
+  dateTime: "dateTime",
+  type: "type",
+  position: "position",
+  positionOrder: "positionOrder",
+  buttonText: "buttonText",
+  altText: "altText",
+  isActive: "isActive",
+  isDeleted: "isDeleted",
+  deletedAt: "deletedAt",
+  createdAt: "createdAt",
+  updatedAt: "updatedAt"
+};
+var CategoryScalarFieldEnum = {
+  id: "id",
+  name: "name",
+  description: "description",
+  image: "image",
+  isDeleted: "isDeleted",
+  deletedAt: "deletedAt",
+  createdAt: "createdAt",
+  updatedAt: "updatedAt"
+};
+var EventScalarFieldEnum = {
+  id: "id",
+  title: "title",
+  description: "description",
+  venue: "venue",
+  dateTime: "dateTime",
+  visibility: "visibility",
+  type: "type",
+  meetingLink: "meetingLink",
+  fee: "fee",
+  images: "images",
+  categoryId: "categoryId",
+  organizerId: "organizerId",
+  createdAt: "createdAt",
+  updatedAt: "updatedAt"
+};
+var InvitationScalarFieldEnum = {
+  id: "id",
+  eventId: "eventId",
+  userId: "userId",
+  status: "status",
+  createdAt: "createdAt"
+};
+var ParticipationScalarFieldEnum = {
+  id: "id",
+  userId: "userId",
+  eventId: "eventId",
+  status: "status",
+  createdAt: "createdAt"
+};
+var PaymentScalarFieldEnum = {
+  id: "id",
+  amount: "amount",
+  transactionId: "transactionId",
+  stripeEventId: "stripeEventId",
+  status: "status",
+  userId: "userId",
+  invoiceUrl: "invoiceUrl",
+  paymentGatewayData: "paymentGatewayData",
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
+  participationId: "participationId",
+  invitationId: "invitationId"
+};
+var ReviewScalarFieldEnum = {
+  id: "id",
+  rating: "rating",
+  comment: "comment",
+  userId: "userId",
+  eventId: "eventId",
+  createdAt: "createdAt",
+  updatedAt: "updatedAt"
+};
+var TicketScalarFieldEnum = {
+  id: "id",
+  userId: "userId",
+  eventId: "eventId",
+  participationId: "participationId",
+  qrCode: "qrCode",
+  status: "status",
+  checkedInAt: "checkedInAt",
+  createdAt: "createdAt",
+  updatedAt: "updatedAt"
+};
+var SortOrder = {
+  asc: "asc",
+  desc: "desc"
+};
+var NullableJsonNullValueInput = {
+  DbNull: DbNull2,
+  JsonNull: JsonNull2
+};
+var QueryMode = {
+  default: "default",
+  insensitive: "insensitive"
+};
+var NullsOrder = {
+  first: "first",
+  last: "last"
+};
+var JsonNullValueFilter = {
+  DbNull: DbNull2,
+  JsonNull: JsonNull2,
+  AnyNull: AnyNull2
+};
+var defineExtension = runtime2.Extensions.defineExtension;
+
+// src/generated/prisma/enums.ts
+var Role = {
+  USER: "USER",
+  ADMIN: "ADMIN"
+};
+var UserStatus = {
+  ACTIVE: "ACTIVE",
+  SUSPENDED: "SUSPENDED"
+};
+var EventVisibility = {
+  PUBLIC: "PUBLIC",
+  PRIVATE: "PRIVATE"
+};
+var ParticipationStatus = {
+  PENDING: "PENDING",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+  BANNED: "BANNED"
+};
+var InvitationStatus = {
+  PENDING: "PENDING",
+  ACCEPTED: "ACCEPTED",
+  DECLINED: "DECLINED"
+};
+var PaymentStatus = {
+  PENDING: "PENDING",
+  SUCCESS: "SUCCESS",
+  FAILED: "FAILED",
+  REFUNDED: "REFUNDED",
+  CANCELED: "CANCELED",
+  UNPAID: "UNPAID"
+};
+
+// src/generated/prisma/client.ts
+globalThis["__dirname"] = path.dirname(fileURLToPath(import.meta.url));
+var PrismaClient = getPrismaClientClass();
 
 // src/app/config/env.ts
 import dotenv from "dotenv";
@@ -85,10 +411,174 @@ var loadEnvVariables = () => {
 };
 var envVars = loadEnvVariables();
 
-// src/app/errorHelpers/handleZodError.ts
+// src/app/errorHelpers/handlePrismaErrors.ts
 import status2 from "http-status";
+var getStatusCodeFromPrismaError = (errorCode) => {
+  if (errorCode === "P2002") {
+    return status2.CONFLICT;
+  }
+  if (["P2025", "P2001", "P2015", "P2018"].includes(errorCode)) {
+    return status2.NOT_FOUND;
+  }
+  if (["P1000", "P6002"].includes(errorCode)) {
+    return status2.UNAUTHORIZED;
+  }
+  if (["P1010", "P6010"].includes(errorCode)) {
+    return status2.FORBIDDEN;
+  }
+  if (errorCode === "P6003") {
+    return status2.PAYMENT_REQUIRED;
+  }
+  if (["P1008", "P2004", "P6004"].includes(errorCode)) {
+    return status2.GATEWAY_TIMEOUT;
+  }
+  if (errorCode === "P5011") {
+    return status2.TOO_MANY_REQUESTS;
+  }
+  if (errorCode === "P6009") {
+    return 413;
+  }
+  if (errorCode.startsWith("P1") || ["P2024", "P2037", "P6008"].includes(errorCode)) {
+    return status2.SERVICE_UNAVAILABLE;
+  }
+  if (errorCode.startsWith("P2")) {
+    return status2.BAD_REQUEST;
+  }
+  if (errorCode.startsWith("P3") || errorCode.startsWith("P4")) {
+    return status2.INTERNAL_SERVER_ERROR;
+  }
+  return status2.INTERNAL_SERVER_ERROR;
+};
+var formatErrorMeta = (meta) => {
+  if (!meta) return "";
+  const parts = [];
+  if (meta.target) {
+    parts.push(`Field(s): ${String(meta.target)}`);
+  }
+  if (meta.field_name) {
+    parts.push(`Field: ${String(meta.field_name)}`);
+  }
+  if (meta.column_name) {
+    parts.push(`Column: ${String(meta.column_name)}`);
+  }
+  if (meta.table) {
+    parts.push(`Table: ${String(meta.table)}`);
+  }
+  if (meta.model_name) {
+    parts.push(`Model: ${String(meta.model_name)}`);
+  }
+  if (meta.relation_name) {
+    parts.push(`Relation: ${String(meta.relation_name)}`);
+  }
+  if (meta.constraint) {
+    parts.push(`Constraint: ${String(meta.constraint)}`);
+  }
+  if (meta.database_error) {
+    parts.push(`Database Error: ${String(meta.database_error)}`);
+  }
+  return parts.length > 0 ? parts.join(" |") : "";
+};
+var handlePrismaClientKnownRequestError = (error) => {
+  const statusCode = getStatusCodeFromPrismaError(error.code);
+  const metaInfo = formatErrorMeta(error.meta);
+  let cleanMessage = error.message;
+  cleanMessage = cleanMessage.replace(/Invalid `.*?` invocation:?\s*/i, "");
+  const lines = cleanMessage.split("\n").filter((line) => line.trim());
+  const mainMessage = lines[0] || "An error occurred with the database operation.";
+  const errorSources = [
+    {
+      path: error.code,
+      message: metaInfo ? `${mainMessage} | ${metaInfo}` : mainMessage
+    }
+  ];
+  if (error.meta?.cause) {
+    errorSources.push({
+      path: "cause",
+      message: String(error.meta.cause)
+    });
+  }
+  return {
+    success: false,
+    statusCode,
+    message: `Prisma Client Known Request Error: ${mainMessage}`,
+    errorSources
+  };
+};
+var handlePrismaClientUnknownError = (error) => {
+  let cleanMessage = error.message;
+  cleanMessage = cleanMessage.replace(/Invalid `.*?` invocation:?\s*/i, "");
+  const lines = cleanMessage.split("\n").filter((line) => line.trim());
+  const mainMessage = lines[0] || "An unknown error occurred with the database operation.";
+  const errorSources = [
+    {
+      path: "Unknown Prisma Error",
+      message: mainMessage
+    }
+  ];
+  return {
+    success: false,
+    statusCode: status2.INTERNAL_SERVER_ERROR,
+    message: `Prisma Client Unknown Request Error: ${mainMessage}`,
+    errorSources
+  };
+};
+var handlePrismaClientValidationError = (error) => {
+  let cleanMessage = error.message;
+  cleanMessage = cleanMessage.replace(/Invalid `.*?` invocation:?\s*/i, "");
+  const lines = cleanMessage.split("\n").filter((line) => line.trim());
+  const errorSources = [];
+  const fieldMatch = cleanMessage.match(/Argument `(\w+)`/i);
+  const fieldName = fieldMatch ? fieldMatch[1] : "Unknown Field";
+  const mainMessage = lines.find(
+    (line) => !line.includes("Argument") && !line.includes("\u2192") && line.length > 10
+  ) || lines[0] || "Invalid query parameters provided to the database operation.";
+  errorSources.push({
+    path: fieldName,
+    message: mainMessage
+  });
+  return {
+    success: false,
+    statusCode: status2.BAD_REQUEST,
+    message: `Prisma Client Validation Error: ${mainMessage}`,
+    errorSources
+  };
+};
+var handlerPrismaClientInitializationError = (error) => {
+  const statusCode = error.errorCode ? getStatusCodeFromPrismaError(error.errorCode) : status2.SERVICE_UNAVAILABLE;
+  const cleanMessage = error.message;
+  cleanMessage.replace(/Invalid `.*?` invocation:?\s*/i, "");
+  const lines = cleanMessage.split("\n").filter((line) => line.trim());
+  const mainMessage = lines[0] || "An error occurred while initializing the Prisma Client.";
+  const errorSources = [
+    {
+      path: error.errorCode || "Initialization Error",
+      message: mainMessage
+    }
+  ];
+  return {
+    success: false,
+    statusCode,
+    message: `Prisma Client Initialization Error: ${mainMessage}`,
+    errorSources
+  };
+};
+var handlerPrismaClientRustPanicError = () => {
+  const errorSources = [{
+    path: "Rust Engine Crashed",
+    message: "The database engine encountered a fatal error and crashed. This is usually due to an internal bug in the Prisma engine or an unexpected edge case in the database operation. Please check the Prisma logs for more details and consider reporting this issue to the Prisma team if it persists."
+  }];
+  return {
+    success: false,
+    statusCode: status2.INTERNAL_SERVER_ERROR,
+    message: "Prisma Client Rust Panic Error: The database engine crashed due to a fatal error.",
+    errorSources
+  };
+};
+
+// src/app/errorHelpers/handleZodError.ts
+import status3 from "http-status";
 var handleZodError = (err) => {
-  const statusCode = status2.BAD_REQUEST;
+  const statusCode = status3.BAD_REQUEST;
   const message = "Zod Validation Error";
   const errorSources = [];
   err.issues.forEach((issue) => {
@@ -106,15 +596,45 @@ var handleZodError = (err) => {
 };
 
 // src/app/middleware/globalErrorHandler.ts
-var globalErrorHandler = (err, req, res, next) => {
+var globalErrorHandler = async (err, req, res, next) => {
   if (envVars.NODE_ENV === "development") {
     console.log("Error from Global Error Handler", err);
   }
   let errorSources = [];
-  let statusCode = status3.INTERNAL_SERVER_ERROR;
+  let statusCode = status4.INTERNAL_SERVER_ERROR;
   let message = "Internal Server Error";
   let stack = void 0;
-  if (err instanceof z.ZodError) {
+  if (err instanceof prismaNamespace_exports.PrismaClientKnownRequestError) {
+    const simplifiedError = handlePrismaClientKnownRequestError(err);
+    statusCode = simplifiedError.statusCode;
+    message = simplifiedError.message;
+    errorSources = [...simplifiedError.errorSources];
+    stack = err.stack;
+  } else if (err instanceof prismaNamespace_exports.PrismaClientUnknownRequestError) {
+    const simplifiedError = handlePrismaClientUnknownError(err);
+    statusCode = simplifiedError.statusCode;
+    message = simplifiedError.message;
+    errorSources = [...simplifiedError.errorSources];
+    stack = err.stack;
+  } else if (err instanceof prismaNamespace_exports.PrismaClientValidationError) {
+    const simplifiedError = handlePrismaClientValidationError(err);
+    statusCode = simplifiedError.statusCode;
+    message = simplifiedError.message;
+    errorSources = [...simplifiedError.errorSources];
+    stack = err.stack;
+  } else if (err instanceof prismaNamespace_exports.PrismaClientRustPanicError) {
+    const simplifiedError = handlerPrismaClientRustPanicError();
+    statusCode = simplifiedError.statusCode;
+    message = simplifiedError.message;
+    errorSources = [...simplifiedError.errorSources];
+    stack = err.stack;
+  } else if (err instanceof prismaNamespace_exports.PrismaClientInitializationError) {
+    const simplifiedError = handlerPrismaClientInitializationError(err);
+    statusCode = simplifiedError.statusCode;
+    message = simplifiedError.message;
+    errorSources = [...simplifiedError.errorSources];
+    stack = err.stack;
+  } else if (err instanceof z.ZodError) {
     const simplifiedError = handleZodError(err);
     statusCode = simplifiedError.statusCode;
     message = simplifiedError.message;
@@ -131,7 +651,7 @@ var globalErrorHandler = (err, req, res, next) => {
       }
     ];
   } else if (err instanceof Error) {
-    statusCode = status3.INTERNAL_SERVER_ERROR;
+    statusCode = status4.INTERNAL_SERVER_ERROR;
     message = err.message;
     stack = err.stack;
     errorSources = [
@@ -152,9 +672,9 @@ var globalErrorHandler = (err, req, res, next) => {
 };
 
 // src/app/middleware/notFound.ts
-import status4 from "http-status";
+import status5 from "http-status";
 var notFound = (req, res) => {
-  res.status(status4.NOT_FOUND).json({
+  res.status(status5.NOT_FOUND).json({
     message: "Route not found!",
     path: req.originalUrl,
     date: Date()
@@ -168,7 +688,7 @@ import { Router as Router15 } from "express";
 import { Router } from "express";
 
 // src/app/module/auth/auth.controller.ts
-import status6 from "http-status";
+import status7 from "http-status";
 
 // src/app/shared/catchAsync.ts
 var catchAsync = (fn) => {
@@ -275,7 +795,7 @@ var tokenUtils = {
 };
 
 // src/app/module/auth/auth.service.ts
-import status5 from "http-status";
+import status6 from "http-status";
 
 // src/app/lib/auth.ts
 import { betterAuth } from "better-auth";
@@ -284,97 +804,6 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 // src/app/lib/prisma.ts
 import { PrismaPg } from "@prisma/adapter-pg";
 import "dotenv/config";
-
-// src/generated/prisma/client.ts
-import * as path from "path";
-import { fileURLToPath } from "url";
-
-// src/generated/prisma/internal/class.ts
-import * as runtime from "@prisma/client/runtime/client";
-var config = {
-  "previewFeatures": [],
-  "clientVersion": "7.3.0",
-  "engineVersion": "9d6ad21cbbceab97458517b147a6a09ff43aa735",
-  "activeProvider": "postgresql",
-  "inlineSchema": 'model User {\n  id            String  @id @default(cuid())\n  name          String\n  email         String  @unique\n  emailVerified Boolean @default(false)\n\n  role   Role       @default(USER)\n  status UserStatus @default(ACTIVE)\n\n  isDeleted Boolean   @default(false)\n  deletedAt DateTime?\n\n  image String?\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  // Better Auth relations\n  sessions Session[]\n  accounts Account[]\n\n  // Planora relations\n  events         Event[]         @relation("OrganizerEvents")\n  participations Participation[]\n  invitations    Invitation[]\n  reviews        Review[]\n  payments       Payment[]\n  tickets        Ticket[]\n\n  @@map("user")\n}\n\nmodel Session {\n  id        String   @id\n  expiresAt DateTime\n  token     String\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n  ipAddress String?\n  userAgent String?\n  userId    String\n  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)\n\n  @@unique([token])\n  @@index([userId])\n  @@map("session")\n}\n\nmodel Account {\n  id                    String    @id\n  accountId             String\n  providerId            String\n  userId                String\n  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)\n  accessToken           String?\n  refreshToken          String?\n  idToken               String?\n  accessTokenExpiresAt  DateTime?\n  refreshTokenExpiresAt DateTime?\n  scope                 String?\n  password              String?\n  createdAt             DateTime  @default(now())\n  updatedAt             DateTime  @updatedAt\n\n  @@index([userId])\n  @@map("account")\n}\n\nmodel Verification {\n  id         String   @id\n  identifier String\n  value      String\n  expiresAt  DateTime\n  createdAt  DateTime @default(now())\n  updatedAt  DateTime @updatedAt\n\n  @@index([identifier])\n  @@map("verification")\n}\n\nmodel Banner {\n  id String @id @default(uuid())\n\n  title       String\n  description String?\n\n  image       String\n  redirectUrl String?\n\n  dateTime DateTime?\n  type     EventType @default(ONLINE)\n\n  position      BannerPosition\n  positionOrder Int\n\n  buttonText String?\n  altText    String?\n\n  isActive Boolean @default(true)\n\n  isDeleted Boolean   @default(false)\n  deletedAt DateTime?\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  @@index([position])\n  @@index([isActive])\n  @@map("banner")\n}\n\nmodel Category {\n  id          String  @id @default(uuid())\n  name        String\n  description String?\n  image       String?\n\n  isDeleted Boolean   @default(false)\n  deletedAt DateTime?\n  events    Event[]\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  @@index([name])\n  @@map("category")\n}\n\nenum Role {\n  USER\n  ADMIN\n}\n\nenum UserStatus {\n  ACTIVE\n  SUSPENDED\n}\n\nenum EventVisibility {\n  PUBLIC\n  PRIVATE\n}\n\nenum EventType {\n  ONLINE\n  OFFLINE\n}\n\nenum ParticipationStatus {\n  PENDING\n  APPROVED\n  REJECTED\n  BANNED\n}\n\nenum InvitationStatus {\n  PENDING\n  ACCEPTED\n  DECLINED\n}\n\nenum PaymentStatus {\n  PENDING\n  SUCCESS\n  FAILED\n  REFUNDED\n  CANCELED\n  UNPAID\n}\n\nenum TicketStatus {\n  VALID\n  USED\n  CANCELED\n}\n\nenum BannerPosition {\n  MAIN\n  SECONDARY\n  THIRD\n}\n\nmodel Event {\n  id          String   @id @default(cuid())\n  title       String\n  description String\n  venue       String?\n  dateTime    DateTime\n\n  visibility EventVisibility\n  type       EventType       @default(ONLINE)\n\n  meetingLink String?\n\n  fee Float @default(0)\n\n  images String[]\n\n  categoryId String?\n  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)\n\n  organizerId String\n  organizer   User   @relation("OrganizerEvents", fields: [organizerId], references: [id])\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  participations Participation[]\n  invitations    Invitation[]\n  reviews        Review[]\n  tickets        Ticket[]\n\n  @@index([organizerId])\n  @@index([visibility])\n  @@index([dateTime])\n  @@map("event")\n}\n\nmodel Invitation {\n  id String @id @default(cuid())\n\n  eventId String\n  userId  String\n\n  status InvitationStatus @default(PENDING)\n\n  createdAt DateTime @default(now())\n\n  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)\n  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)\n\n  payment Payment[]\n\n  @@unique([eventId, userId])\n  @@index([eventId])\n  @@index([status])\n  @@map("invitation")\n}\n\nmodel Participation {\n  id String @id @default(cuid())\n\n  userId  String\n  eventId String\n\n  status ParticipationStatus @default(PENDING)\n\n  createdAt DateTime @default(now())\n\n  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)\n  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)\n\n  payment Payment[]\n  ticket  Ticket?\n\n  @@unique([userId, eventId])\n  @@index([eventId])\n  @@index([status])\n  @@map("participation")\n}\n\nmodel Payment {\n  id            String  @id @default(uuid())\n  amount        Float\n  transactionId String  @unique @db.Uuid()\n  stripeEventId String? @unique\n\n  status PaymentStatus @default(PENDING)\n\n  userId String\n  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)\n\n  invoiceUrl         String?\n  paymentGatewayData Json?\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  participationId String?\n  participation   Participation? @relation(fields: [participationId], references: [id], onDelete: Cascade)\n\n  invitationId String?\n  invitation   Invitation? @relation(fields: [invitationId], references: [id], onDelete: Cascade)\n\n  @@index([participationId])\n  @@index([invitationId])\n  @@index([transactionId])\n  @@map("payment")\n}\n\nmodel Review {\n  id String @id @default(cuid())\n\n  rating  Int\n  comment String?\n\n  userId  String\n  eventId String\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)\n  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)\n\n  @@unique([userId, eventId])\n  @@index([eventId])\n  @@map("review")\n}\n\n// This is your Prisma schema file,\n// learn more about it in the docs: https://pris.ly/d/prisma-schema\n\n// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?\n// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init\n\ngenerator client {\n  provider = "prisma-client"\n  output   = "../../src/generated/prisma"\n}\n\ndatasource db {\n  provider = "postgresql"\n}\n\nmodel Ticket {\n  id String @id @default(cuid())\n\n  userId  String\n  eventId String\n\n  participationId String? @unique\n\n  qrCode String @unique\n\n  status TicketStatus @default(VALID)\n\n  checkedInAt DateTime?\n\n  createdAt DateTime @default(now())\n  updatedAt DateTime @updatedAt\n\n  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)\n  event         Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)\n  participation Participation? @relation(fields: [participationId], references: [id], onDelete: Cascade)\n\n  @@index([eventId])\n  @@index([userId])\n  @@map("ticket")\n}\n',
-  "runtimeDataModel": {
-    "models": {},
-    "enums": {},
-    "types": {}
-  }
-};
-config.runtimeDataModel = JSON.parse('{"models":{"User":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"name","kind":"scalar","type":"String"},{"name":"email","kind":"scalar","type":"String"},{"name":"emailVerified","kind":"scalar","type":"Boolean"},{"name":"role","kind":"enum","type":"Role"},{"name":"status","kind":"enum","type":"UserStatus"},{"name":"isDeleted","kind":"scalar","type":"Boolean"},{"name":"deletedAt","kind":"scalar","type":"DateTime"},{"name":"image","kind":"scalar","type":"String"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"},{"name":"sessions","kind":"object","type":"Session","relationName":"SessionToUser"},{"name":"accounts","kind":"object","type":"Account","relationName":"AccountToUser"},{"name":"events","kind":"object","type":"Event","relationName":"OrganizerEvents"},{"name":"participations","kind":"object","type":"Participation","relationName":"ParticipationToUser"},{"name":"invitations","kind":"object","type":"Invitation","relationName":"InvitationToUser"},{"name":"reviews","kind":"object","type":"Review","relationName":"ReviewToUser"},{"name":"payments","kind":"object","type":"Payment","relationName":"PaymentToUser"},{"name":"tickets","kind":"object","type":"Ticket","relationName":"TicketToUser"}],"dbName":"user"},"Session":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"expiresAt","kind":"scalar","type":"DateTime"},{"name":"token","kind":"scalar","type":"String"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"},{"name":"ipAddress","kind":"scalar","type":"String"},{"name":"userAgent","kind":"scalar","type":"String"},{"name":"userId","kind":"scalar","type":"String"},{"name":"user","kind":"object","type":"User","relationName":"SessionToUser"}],"dbName":"session"},"Account":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"accountId","kind":"scalar","type":"String"},{"name":"providerId","kind":"scalar","type":"String"},{"name":"userId","kind":"scalar","type":"String"},{"name":"user","kind":"object","type":"User","relationName":"AccountToUser"},{"name":"accessToken","kind":"scalar","type":"String"},{"name":"refreshToken","kind":"scalar","type":"String"},{"name":"idToken","kind":"scalar","type":"String"},{"name":"accessTokenExpiresAt","kind":"scalar","type":"DateTime"},{"name":"refreshTokenExpiresAt","kind":"scalar","type":"DateTime"},{"name":"scope","kind":"scalar","type":"String"},{"name":"password","kind":"scalar","type":"String"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"}],"dbName":"account"},"Verification":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"identifier","kind":"scalar","type":"String"},{"name":"value","kind":"scalar","type":"String"},{"name":"expiresAt","kind":"scalar","type":"DateTime"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"}],"dbName":"verification"},"Banner":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"title","kind":"scalar","type":"String"},{"name":"description","kind":"scalar","type":"String"},{"name":"image","kind":"scalar","type":"String"},{"name":"redirectUrl","kind":"scalar","type":"String"},{"name":"dateTime","kind":"scalar","type":"DateTime"},{"name":"type","kind":"enum","type":"EventType"},{"name":"position","kind":"enum","type":"BannerPosition"},{"name":"positionOrder","kind":"scalar","type":"Int"},{"name":"buttonText","kind":"scalar","type":"String"},{"name":"altText","kind":"scalar","type":"String"},{"name":"isActive","kind":"scalar","type":"Boolean"},{"name":"isDeleted","kind":"scalar","type":"Boolean"},{"name":"deletedAt","kind":"scalar","type":"DateTime"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"}],"dbName":"banner"},"Category":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"name","kind":"scalar","type":"String"},{"name":"description","kind":"scalar","type":"String"},{"name":"image","kind":"scalar","type":"String"},{"name":"isDeleted","kind":"scalar","type":"Boolean"},{"name":"deletedAt","kind":"scalar","type":"DateTime"},{"name":"events","kind":"object","type":"Event","relationName":"CategoryToEvent"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"}],"dbName":"category"},"Event":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"title","kind":"scalar","type":"String"},{"name":"description","kind":"scalar","type":"String"},{"name":"venue","kind":"scalar","type":"String"},{"name":"dateTime","kind":"scalar","type":"DateTime"},{"name":"visibility","kind":"enum","type":"EventVisibility"},{"name":"type","kind":"enum","type":"EventType"},{"name":"meetingLink","kind":"scalar","type":"String"},{"name":"fee","kind":"scalar","type":"Float"},{"name":"images","kind":"scalar","type":"String"},{"name":"categoryId","kind":"scalar","type":"String"},{"name":"category","kind":"object","type":"Category","relationName":"CategoryToEvent"},{"name":"organizerId","kind":"scalar","type":"String"},{"name":"organizer","kind":"object","type":"User","relationName":"OrganizerEvents"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"},{"name":"participations","kind":"object","type":"Participation","relationName":"EventToParticipation"},{"name":"invitations","kind":"object","type":"Invitation","relationName":"EventToInvitation"},{"name":"reviews","kind":"object","type":"Review","relationName":"EventToReview"},{"name":"tickets","kind":"object","type":"Ticket","relationName":"EventToTicket"}],"dbName":"event"},"Invitation":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"eventId","kind":"scalar","type":"String"},{"name":"userId","kind":"scalar","type":"String"},{"name":"status","kind":"enum","type":"InvitationStatus"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"event","kind":"object","type":"Event","relationName":"EventToInvitation"},{"name":"user","kind":"object","type":"User","relationName":"InvitationToUser"},{"name":"payment","kind":"object","type":"Payment","relationName":"InvitationToPayment"}],"dbName":"invitation"},"Participation":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"userId","kind":"scalar","type":"String"},{"name":"eventId","kind":"scalar","type":"String"},{"name":"status","kind":"enum","type":"ParticipationStatus"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"user","kind":"object","type":"User","relationName":"ParticipationToUser"},{"name":"event","kind":"object","type":"Event","relationName":"EventToParticipation"},{"name":"payment","kind":"object","type":"Payment","relationName":"ParticipationToPayment"},{"name":"ticket","kind":"object","type":"Ticket","relationName":"ParticipationToTicket"}],"dbName":"participation"},"Payment":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"amount","kind":"scalar","type":"Float"},{"name":"transactionId","kind":"scalar","type":"String"},{"name":"stripeEventId","kind":"scalar","type":"String"},{"name":"status","kind":"enum","type":"PaymentStatus"},{"name":"userId","kind":"scalar","type":"String"},{"name":"user","kind":"object","type":"User","relationName":"PaymentToUser"},{"name":"invoiceUrl","kind":"scalar","type":"String"},{"name":"paymentGatewayData","kind":"scalar","type":"Json"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"},{"name":"participationId","kind":"scalar","type":"String"},{"name":"participation","kind":"object","type":"Participation","relationName":"ParticipationToPayment"},{"name":"invitationId","kind":"scalar","type":"String"},{"name":"invitation","kind":"object","type":"Invitation","relationName":"InvitationToPayment"}],"dbName":"payment"},"Review":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"rating","kind":"scalar","type":"Int"},{"name":"comment","kind":"scalar","type":"String"},{"name":"userId","kind":"scalar","type":"String"},{"name":"eventId","kind":"scalar","type":"String"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"},{"name":"user","kind":"object","type":"User","relationName":"ReviewToUser"},{"name":"event","kind":"object","type":"Event","relationName":"EventToReview"}],"dbName":"review"},"Ticket":{"fields":[{"name":"id","kind":"scalar","type":"String"},{"name":"userId","kind":"scalar","type":"String"},{"name":"eventId","kind":"scalar","type":"String"},{"name":"participationId","kind":"scalar","type":"String"},{"name":"qrCode","kind":"scalar","type":"String"},{"name":"status","kind":"enum","type":"TicketStatus"},{"name":"checkedInAt","kind":"scalar","type":"DateTime"},{"name":"createdAt","kind":"scalar","type":"DateTime"},{"name":"updatedAt","kind":"scalar","type":"DateTime"},{"name":"user","kind":"object","type":"User","relationName":"TicketToUser"},{"name":"event","kind":"object","type":"Event","relationName":"EventToTicket"},{"name":"participation","kind":"object","type":"Participation","relationName":"ParticipationToTicket"}],"dbName":"ticket"}},"enums":{},"types":{}}');
-async function decodeBase64AsWasm(wasmBase64) {
-  const { Buffer } = await import("buffer");
-  const wasmArray = Buffer.from(wasmBase64, "base64");
-  return new WebAssembly.Module(wasmArray);
-}
-config.compilerWasm = {
-  getRuntime: async () => await import("@prisma/client/runtime/query_compiler_fast_bg.postgresql.mjs"),
-  getQueryCompilerWasmModule: async () => {
-    const { wasm } = await import("@prisma/client/runtime/query_compiler_fast_bg.postgresql.wasm-base64.mjs");
-    return await decodeBase64AsWasm(wasm);
-  },
-  importName: "./query_compiler_fast_bg.js"
-};
-function getPrismaClientClass() {
-  return runtime.getPrismaClient(config);
-}
-
-// src/generated/prisma/internal/prismaNamespace.ts
-import * as runtime2 from "@prisma/client/runtime/client";
-var getExtensionContext = runtime2.Extensions.getExtensionContext;
-var NullTypes2 = {
-  DbNull: runtime2.NullTypes.DbNull,
-  JsonNull: runtime2.NullTypes.JsonNull,
-  AnyNull: runtime2.NullTypes.AnyNull
-};
-var TransactionIsolationLevel = runtime2.makeStrictEnum({
-  ReadUncommitted: "ReadUncommitted",
-  ReadCommitted: "ReadCommitted",
-  RepeatableRead: "RepeatableRead",
-  Serializable: "Serializable"
-});
-var defineExtension = runtime2.Extensions.defineExtension;
-
-// src/generated/prisma/enums.ts
-var Role = {
-  USER: "USER",
-  ADMIN: "ADMIN"
-};
-var UserStatus = {
-  ACTIVE: "ACTIVE",
-  SUSPENDED: "SUSPENDED"
-};
-var EventVisibility = {
-  PUBLIC: "PUBLIC",
-  PRIVATE: "PRIVATE"
-};
-var ParticipationStatus = {
-  PENDING: "PENDING",
-  APPROVED: "APPROVED",
-  REJECTED: "REJECTED",
-  BANNED: "BANNED"
-};
-var InvitationStatus = {
-  PENDING: "PENDING",
-  ACCEPTED: "ACCEPTED",
-  DECLINED: "DECLINED"
-};
-var PaymentStatus = {
-  PENDING: "PENDING",
-  SUCCESS: "SUCCESS",
-  FAILED: "FAILED",
-  REFUNDED: "REFUNDED",
-  CANCELED: "CANCELED",
-  UNPAID: "UNPAID"
-};
-
-// src/generated/prisma/client.ts
-globalThis["__dirname"] = path.dirname(fileURLToPath(import.meta.url));
-var PrismaClient = getPrismaClientClass();
-
-// src/app/lib/prisma.ts
 var connectionString = envVars.DATABASE_URL;
 var adapter = new PrismaPg({ connectionString });
 var prisma = new PrismaClient({ adapter });
@@ -463,7 +892,7 @@ var registerUser = async (payload) => {
     }
   });
   if (!data.user) {
-    throw new AppError_default(status5.BAD_REQUEST, "Failed to register user");
+    throw new AppError_default(status6.BAD_REQUEST, "Failed to register user");
   }
   const accessToken = tokenUtils.getAccessToken({
     userId: data.user.id,
@@ -498,10 +927,10 @@ var loginUser = async (payload) => {
     }
   });
   if (data.user.status === UserStatus.SUSPENDED) {
-    throw new AppError_default(status5.FORBIDDEN, "User is suspended");
+    throw new AppError_default(status6.FORBIDDEN, "User is suspended");
   }
   if (data.user.isDeleted) {
-    throw new AppError_default(status5.NOT_FOUND, "User is deleted");
+    throw new AppError_default(status6.NOT_FOUND, "User is deleted");
   }
   const accessToken = tokenUtils.getAccessToken({
     userId: data.user.id,
@@ -537,14 +966,14 @@ var getNewToken = async (refreshToken, sessionToken) => {
     }
   });
   if (!session) {
-    throw new AppError_default(status5.UNAUTHORIZED, "Invalid session token");
+    throw new AppError_default(status6.UNAUTHORIZED, "Invalid session token");
   }
   const verifiedRefreshToken = jwtUtils.verifyToken(
     refreshToken,
     envVars.REFRESH_TOKEN_SECRET
   );
   if (!verifiedRefreshToken.success || !verifiedRefreshToken.data) {
-    throw new AppError_default(status5.UNAUTHORIZED, "Invalid refresh token");
+    throw new AppError_default(status6.UNAUTHORIZED, "Invalid refresh token");
   }
   const data = verifiedRefreshToken.data;
   const newAccessToken = tokenUtils.getAccessToken({
@@ -602,7 +1031,7 @@ var registerUser2 = catchAsync(async (req, res) => {
   tokenUtils.setRefreshTokenCookie(res, refreshToken);
   tokenUtils.setBetterAuthSessionCookie(res, token);
   sendResponse(res, {
-    httpStatusCode: status6.CREATED,
+    httpStatusCode: status7.CREATED,
     success: true,
     message: "User registered successfully",
     data: {
@@ -621,7 +1050,7 @@ var loginUser2 = catchAsync(async (req, res) => {
   tokenUtils.setRefreshTokenCookie(res, refreshToken);
   tokenUtils.setBetterAuthSessionCookie(res, token);
   sendResponse(res, {
-    httpStatusCode: status6.OK,
+    httpStatusCode: status7.OK,
     success: true,
     message: "User logged in successfully",
     data: {
@@ -639,7 +1068,7 @@ var getNewToken2 = catchAsync(
     console.log("tokens", req.cookies);
     const betterAuthSessionToken = req.cookies["better-auth.session_token"];
     if (!refreshToken) {
-      throw new AppError_default(status6.UNAUTHORIZED, "Refresh token is missing");
+      throw new AppError_default(status7.UNAUTHORIZED, "Refresh token is missing");
     }
     const result = await AuthService.getNewToken(refreshToken, betterAuthSessionToken);
     const { accessToken, refreshToken: newRefreshToken, sessionToken } = result;
@@ -647,7 +1076,7 @@ var getNewToken2 = catchAsync(
     tokenUtils.setRefreshTokenCookie(res, newRefreshToken);
     tokenUtils.setBetterAuthSessionCookie(res, sessionToken);
     sendResponse(res, {
-      httpStatusCode: status6.OK,
+      httpStatusCode: status7.OK,
       success: true,
       message: "New tokens generated successfully",
       data: {
@@ -675,7 +1104,7 @@ var AuthRoutes = router;
 import { Router as Router2 } from "express";
 
 // src/app/middleware/checkAuth.ts
-import status7 from "http-status";
+import status8 from "http-status";
 var checkAuth = (...authRoles) => {
   return async (req, res, next) => {
     try {
@@ -723,19 +1152,19 @@ var checkAuth = (...authRoles) => {
           }
           if (user.status === UserStatus.SUSPENDED) {
             throw new AppError_default(
-              status7.UNAUTHORIZED,
+              status8.UNAUTHORIZED,
               "Unauthorized access! User is not active."
             );
           }
           if (user.isDeleted) {
             throw new AppError_default(
-              status7.UNAUTHORIZED,
+              status8.UNAUTHORIZED,
               "Unauthorized access! User is deleted."
             );
           }
           if (authRoles.length > 0 && !authRoles.includes(user.role)) {
             throw new AppError_default(
-              status7.FORBIDDEN,
+              status8.FORBIDDEN,
               "Forbidden access! You do not have permission to access this resource."
             );
           }
@@ -751,7 +1180,7 @@ var checkAuth = (...authRoles) => {
         );
         if (!accessToken2) {
           throw new AppError_default(
-            status7.UNAUTHORIZED,
+            status8.UNAUTHORIZED,
             "Unauthorized access! No access token provided."
           );
         }
@@ -760,7 +1189,7 @@ var checkAuth = (...authRoles) => {
       const accessToken = CookieUtils.getCookie(req, "accessToken");
       if (!accessToken) {
         throw new AppError_default(
-          status7.UNAUTHORIZED,
+          status8.UNAUTHORIZED,
           "Unauthorized access! No access token provided."
         );
       }
@@ -771,13 +1200,13 @@ var checkAuth = (...authRoles) => {
       console.log("verifiedToken", verifiedToken);
       if (!verifiedToken.success) {
         throw new AppError_default(
-          status7.UNAUTHORIZED,
+          status8.UNAUTHORIZED,
           "Unauthorized access! Invalid access token."
         );
       }
       if (authRoles.length > 0 && !authRoles.includes(verifiedToken.data.role)) {
         throw new AppError_default(
-          status7.FORBIDDEN,
+          status8.FORBIDDEN,
           "Forbidden access! You do not have permission to access this resource."
         );
       }
@@ -789,10 +1218,10 @@ var checkAuth = (...authRoles) => {
 };
 
 // src/app/module/event/event.controller.ts
-import status9 from "http-status";
+import status10 from "http-status";
 
 // src/app/module/event/event.service.ts
-import status8 from "http-status";
+import status9 from "http-status";
 
 // src/app/utils/QueryBuilder.ts
 var QueryBuilder = class {
@@ -1264,7 +1693,7 @@ var getSingleEventPublic = async (user, eventId) => {
     }
   });
   if (!event) {
-    throw new AppError_default(status8.NOT_FOUND, "Event not found");
+    throw new AppError_default(status9.NOT_FOUND, "Event not found");
   }
   return {
     type: "PUBLIC",
@@ -1282,22 +1711,22 @@ var organizersSingleEventById = async (id) => {
     }
   });
   if (!event) {
-    throw new AppError_default(status8.NOT_FOUND, "Event not found");
+    throw new AppError_default(status9.NOT_FOUND, "Event not found");
   }
   return event;
 };
 var updateEvent = async (id, user, payload) => {
   const event = await prisma.event.findUnique({ where: { id } });
-  if (!event) throw new AppError_default(status8.NOT_FOUND, "Event not found");
+  if (!event) throw new AppError_default(status9.NOT_FOUND, "Event not found");
   if (event.organizerId !== user.userId && user.role !== Role.ADMIN) {
-    throw new AppError_default(status8.FORBIDDEN, "Not authorized");
+    throw new AppError_default(status9.FORBIDDEN, "Not authorized");
   }
   if (payload.categoryId) {
     const categoryExists = await prisma.category.findUnique({
       where: { id: payload.categoryId }
     });
     if (!categoryExists) {
-      throw new AppError_default(status8.BAD_REQUEST, "Category does not exist");
+      throw new AppError_default(status9.BAD_REQUEST, "Category does not exist");
     }
   }
   const dataToUpdate = {
@@ -1317,14 +1746,14 @@ var deleteEvent = async (id, user) => {
     }
   });
   if (!event) {
-    throw new AppError_default(status8.NOT_FOUND, "Event not found");
+    throw new AppError_default(status9.NOT_FOUND, "Event not found");
   }
   if (event.organizerId !== user.userId && user.role !== Role.ADMIN) {
-    throw new AppError_default(status8.FORBIDDEN, "Not authorized");
+    throw new AppError_default(status9.FORBIDDEN, "Not authorized");
   }
   if (event.participations.length > 0) {
     throw new AppError_default(
-      status8.BAD_REQUEST,
+      status9.BAD_REQUEST,
       "Cannot delete event. Participants already joined."
     );
   }
@@ -1354,11 +1783,11 @@ var EventService = {
 var createEvent2 = catchAsync(async (req, res) => {
   const user = req.user;
   if (!user) {
-    throw new AppError_default(status9.UNAUTHORIZED, "Unauthorized");
+    throw new AppError_default(status10.UNAUTHORIZED, "Unauthorized");
   }
   const result = await EventService.createEvent(user, req.body);
   sendResponse(res, {
-    httpStatusCode: status9.CREATED,
+    httpStatusCode: status10.CREATED,
     success: true,
     message: "Event created successfully",
     data: result
@@ -1368,7 +1797,7 @@ var getAllEvents2 = catchAsync(async (req, res) => {
   const query = req.query;
   const result = await EventService.getAllEvents(query);
   sendResponse(res, {
-    httpStatusCode: status9.OK,
+    httpStatusCode: status10.OK,
     success: true,
     message: "Events fetched successfully",
     data: result
@@ -1379,7 +1808,7 @@ var getSingleEventPublic2 = catchAsync(async (req, res) => {
   const user = req.user;
   const result = await EventService.getSingleEventPublic(user, id);
   sendResponse(res, {
-    httpStatusCode: status9.OK,
+    httpStatusCode: status10.OK,
     success: true,
     message: "Event fetched successfully",
     data: result
@@ -1391,10 +1820,10 @@ var organizersSingleEventById2 = catchAsync(async (req, res) => {
   const userRole = req.user?.role;
   const event = await EventService.organizersSingleEventById(id);
   if (event.organizerId !== userId && userRole !== "ADMIN") {
-    throw new AppError_default(status9.UNAUTHORIZED, "You are not authorized to view this event");
+    throw new AppError_default(status10.UNAUTHORIZED, "You are not authorized to view this event");
   }
   sendResponse(res, {
-    httpStatusCode: status9.OK,
+    httpStatusCode: status10.OK,
     success: true,
     message: "Event fetched successfully",
     data: event
@@ -1404,11 +1833,11 @@ var getMyEvents2 = catchAsync(async (req, res) => {
   const query = req.query;
   const user = req.user;
   if (!user) {
-    throw new AppError_default(status9.UNAUTHORIZED, "Unauthorized");
+    throw new AppError_default(status10.UNAUTHORIZED, "Unauthorized");
   }
   const result = await EventService.getMyEvents(user, query);
   sendResponse(res, {
-    httpStatusCode: status9.OK,
+    httpStatusCode: status10.OK,
     success: true,
     message: "My events fetched successfully",
     data: result
@@ -1418,7 +1847,7 @@ var updateEvent2 = catchAsync(async (req, res) => {
   const { id } = req.params;
   const user = req.user;
   if (!user) {
-    throw new AppError_default(status9.UNAUTHORIZED, "Unauthorized");
+    throw new AppError_default(status10.UNAUTHORIZED, "Unauthorized");
   }
   const result = await EventService.updateEvent(
     id,
@@ -1426,7 +1855,7 @@ var updateEvent2 = catchAsync(async (req, res) => {
     req.body
   );
   sendResponse(res, {
-    httpStatusCode: status9.OK,
+    httpStatusCode: status10.OK,
     success: true,
     message: "Event updated successfully",
     data: result
@@ -1436,11 +1865,11 @@ var deleteEvent2 = catchAsync(async (req, res) => {
   const { id } = req.params;
   const user = req.user;
   if (!user) {
-    throw new AppError_default(status9.UNAUTHORIZED, "Unauthorized");
+    throw new AppError_default(status10.UNAUTHORIZED, "Unauthorized");
   }
   await EventService.deleteEvent(id, user);
   sendResponse(res, {
-    httpStatusCode: status9.OK,
+    httpStatusCode: status10.OK,
     success: true,
     message: "Event deleted successfully"
   });
@@ -1448,7 +1877,7 @@ var deleteEvent2 = catchAsync(async (req, res) => {
 var getAllEventsAdmin2 = catchAsync(async (req, res) => {
   const result = await EventService.getAllEventsAdmin();
   sendResponse(res, {
-    httpStatusCode: status9.OK,
+    httpStatusCode: status10.OK,
     success: true,
     message: "All events fetched (Admin)",
     data: result
@@ -1481,13 +1910,13 @@ var EventRoutes = router2;
 import { Router as Router3 } from "express";
 
 // src/app/module/participation/participation.controller.ts
-import status11 from "http-status";
+import status12 from "http-status";
 
 // src/app/module/participation/participation.service.ts
-import status10 from "http-status";
+import status11 from "http-status";
 var getMyEvents3 = async (user, query) => {
   if (!user?.userId) {
-    throw new AppError_default(status10.UNAUTHORIZED, "Unauthorized");
+    throw new AppError_default(status11.UNAUTHORIZED, "Unauthorized");
   }
   const approvedQB = new QueryBuilder(
     prisma.participation,
@@ -1594,13 +2023,13 @@ var getEventParticipants = async (user, eventId) => {
     where: { id: eventId }
   });
   if (!event) {
-    throw new AppError_default(status10.NOT_FOUND, "Event not found");
+    throw new AppError_default(status11.NOT_FOUND, "Event not found");
   }
   const isOrganizer = event.organizerId === user.userId;
   const isAdmin = user.role === "ADMIN";
   if (!isOrganizer && !isAdmin) {
     throw new AppError_default(
-      status10.FORBIDDEN,
+      status11.FORBIDDEN,
       "You are not allowed to view participants"
     );
   }
@@ -1613,7 +2042,7 @@ var getEventParticipants = async (user, eventId) => {
 };
 var getMyAllEventParticipants = async (user) => {
   if (!user?.userId) {
-    throw new AppError_default(status10.UNAUTHORIZED, "Unauthorized");
+    throw new AppError_default(status11.UNAUTHORIZED, "Unauthorized");
   }
   const events = await prisma.event.findMany({
     where: { organizerId: user.userId },
@@ -1696,10 +2125,10 @@ var updateStatus = async (user, participationId, newStatus) => {
     include: { event: true }
   });
   if (!participation) {
-    throw new AppError_default(status10.NOT_FOUND, "Participation not found");
+    throw new AppError_default(status11.NOT_FOUND, "Participation not found");
   }
   if (participation.event.organizerId !== user.userId && user.role !== "ADMIN") {
-    throw new AppError_default(status10.FORBIDDEN, "Not authorized");
+    throw new AppError_default(status11.FORBIDDEN, "Not authorized");
   }
   return prisma.participation.update({
     where: { id: participationId },
@@ -1719,7 +2148,7 @@ var getMyEvents4 = catchAsync(async (req, res) => {
   const query = req.query;
   const result = await ParticipationService.getMyEvents(user, query);
   sendResponse(res, {
-    httpStatusCode: status11.OK,
+    httpStatusCode: status12.OK,
     success: true,
     message: result.data.length === 0 ? "You have not joined any events yet." : "My events fetched",
     data: result
@@ -1727,14 +2156,14 @@ var getMyEvents4 = catchAsync(async (req, res) => {
 });
 var getEventParticipants2 = catchAsync(async (req, res) => {
   const user = req.user;
-  if (!user) throw new AppError_default(status11.UNAUTHORIZED, "Unauthorized");
+  if (!user) throw new AppError_default(status12.UNAUTHORIZED, "Unauthorized");
   const { eventId } = req.params;
   const result = await ParticipationService.getEventParticipants(
     user,
     eventId
   );
   sendResponse(res, {
-    httpStatusCode: status11.OK,
+    httpStatusCode: status12.OK,
     success: true,
     message: "Participants fetched",
     data: result
@@ -1742,10 +2171,10 @@ var getEventParticipants2 = catchAsync(async (req, res) => {
 });
 var getMyAllEventParticipants2 = catchAsync(async (req, res) => {
   const user = req.user;
-  if (!user) throw new AppError_default(status11.UNAUTHORIZED, "Unauthorized");
+  if (!user) throw new AppError_default(status12.UNAUTHORIZED, "Unauthorized");
   const result = await ParticipationService.getMyAllEventParticipants(user);
   sendResponse(res, {
-    httpStatusCode: status11.OK,
+    httpStatusCode: status12.OK,
     success: true,
     message: "All participants of your events fetched",
     data: result
@@ -1753,11 +2182,11 @@ var getMyAllEventParticipants2 = catchAsync(async (req, res) => {
 });
 var updateStatus2 = catchAsync(async (req, res) => {
   const user = req.user;
-  if (!user) throw new AppError_default(status11.UNAUTHORIZED, "Unauthorized");
+  if (!user) throw new AppError_default(status12.UNAUTHORIZED, "Unauthorized");
   const { id } = req.params;
   const { status: newStatus } = req.body;
   if (!Object.values(ParticipationStatus).includes(newStatus)) {
-    throw new AppError_default(status11.BAD_REQUEST, "Invalid status value");
+    throw new AppError_default(status12.BAD_REQUEST, "Invalid status value");
   }
   const result = await ParticipationService.updateStatus(
     user,
@@ -1765,7 +2194,7 @@ var updateStatus2 = catchAsync(async (req, res) => {
     newStatus
   );
   sendResponse(res, {
-    httpStatusCode: status11.OK,
+    httpStatusCode: status12.OK,
     success: true,
     message: `Participation ${newStatus.toLowerCase()}`,
     data: result
@@ -1806,33 +2235,33 @@ var ParticipationRoutes = router3;
 import { Router as Router4 } from "express";
 
 // src/app/module/invitation/invitation.controller.ts
-import status13 from "http-status";
+import status14 from "http-status";
 
 // src/app/module/invitation/invitation.service.ts
-import status12 from "http-status";
+import status13 from "http-status";
 var sendInvitation = async (user, eventId, targetUserId) => {
   const event = await prisma.event.findUnique({ where: { id: eventId } });
-  if (!event) throw new AppError_default(status12.NOT_FOUND, "Event not found");
+  if (!event) throw new AppError_default(status13.NOT_FOUND, "Event not found");
   if (event.visibility !== EventVisibility.PRIVATE) {
-    throw new AppError_default(status12.BAD_REQUEST, "Invitations only for private events");
+    throw new AppError_default(status13.BAD_REQUEST, "Invitations only for private events");
   }
   if (event.organizerId !== user.userId && user.role !== "ADMIN") {
-    throw new AppError_default(status12.FORBIDDEN, "Not authorized");
+    throw new AppError_default(status13.FORBIDDEN, "Not authorized");
   }
   if (event.organizerId === targetUserId) {
-    throw new AppError_default(status12.BAD_REQUEST, "Organizer cannot invite self");
+    throw new AppError_default(status13.BAD_REQUEST, "Organizer cannot invite self");
   }
   const existingParticipation = await prisma.participation.findUnique({
     where: { userId_eventId: { userId: targetUserId, eventId } }
   });
   if (existingParticipation) {
-    throw new AppError_default(status12.BAD_REQUEST, "User already joined");
+    throw new AppError_default(status13.BAD_REQUEST, "User already joined");
   }
   const existingInvitation = await prisma.invitation.findFirst({
     where: { userId: targetUserId, eventId }
   });
   if (existingInvitation) {
-    throw new AppError_default(status12.BAD_REQUEST, "User has already been invited");
+    throw new AppError_default(status13.BAD_REQUEST, "User has already been invited");
   }
   return prisma.invitation.create({
     data: {
@@ -1843,9 +2272,9 @@ var sendInvitation = async (user, eventId, targetUserId) => {
 };
 var getEventInvitations = async (user, eventId) => {
   const event = await prisma.event.findUnique({ where: { id: eventId } });
-  if (!event) throw new AppError_default(status12.NOT_FOUND, "Event not found");
+  if (!event) throw new AppError_default(status13.NOT_FOUND, "Event not found");
   if (event.organizerId !== user.userId && user.role !== "ADMIN") {
-    throw new AppError_default(status12.FORBIDDEN, "Not authorized");
+    throw new AppError_default(status13.FORBIDDEN, "Not authorized");
   }
   return prisma.invitation.findMany({
     where: { eventId },
@@ -1854,7 +2283,7 @@ var getEventInvitations = async (user, eventId) => {
 };
 var getMyInvitations = async (user, query) => {
   if (!user?.userId) {
-    throw new AppError_default(status12.UNAUTHORIZED, "Unauthorized");
+    throw new AppError_default(status13.UNAUTHORIZED, "Unauthorized");
   }
   const queryBuilder = new QueryBuilder(
     prisma.invitation,
@@ -1878,16 +2307,16 @@ var getMyInvitations = async (user, query) => {
 };
 var cancelInvitation = async (user, invitationId) => {
   if (!user?.userId) {
-    throw new AppError_default(status12.UNAUTHORIZED, "Unauthorized");
+    throw new AppError_default(status13.UNAUTHORIZED, "Unauthorized");
   }
   const invitation = await prisma.invitation.findUnique({
     where: { id: invitationId }
   });
   if (!invitation) {
-    throw new AppError_default(status12.NOT_FOUND, "Invitation not found");
+    throw new AppError_default(status13.NOT_FOUND, "Invitation not found");
   }
   if (invitation.userId !== user.userId) {
-    throw new AppError_default(status12.FORBIDDEN, "You are not allowed to cancel this invitation");
+    throw new AppError_default(status13.FORBIDDEN, "You are not allowed to cancel this invitation");
   }
   return prisma.invitation.delete({
     where: { id: invitationId }
@@ -1903,7 +2332,7 @@ var InvitationService = {
 // src/app/module/invitation/invitation.controller.ts
 var sendInvitation2 = catchAsync(async (req, res) => {
   const user = req.user;
-  if (!user) throw new AppError_default(status13.UNAUTHORIZED, "Unauthorized");
+  if (!user) throw new AppError_default(status14.UNAUTHORIZED, "Unauthorized");
   const { eventId, userId } = req.body;
   const result = await InvitationService.sendInvitation(
     user,
@@ -1911,7 +2340,7 @@ var sendInvitation2 = catchAsync(async (req, res) => {
     userId
   );
   sendResponse(res, {
-    httpStatusCode: status13.CREATED,
+    httpStatusCode: status14.CREATED,
     success: true,
     message: "Invitation sent",
     data: result
@@ -1925,7 +2354,7 @@ var getEventInvitations2 = catchAsync(async (req, res) => {
     eventId
   );
   sendResponse(res, {
-    httpStatusCode: status13.OK,
+    httpStatusCode: status14.OK,
     success: true,
     message: "Event invitations fetched",
     data: result
@@ -1936,7 +2365,7 @@ var getMyInvitations2 = catchAsync(async (req, res) => {
   const query = req.query;
   const result = await InvitationService.getMyInvitations(user, query);
   sendResponse(res, {
-    httpStatusCode: status13.OK,
+    httpStatusCode: status14.OK,
     success: true,
     message: "My invitations fetched",
     data: result
@@ -1950,7 +2379,7 @@ var cancelInvitation2 = catchAsync(async (req, res) => {
     id
   );
   sendResponse(res, {
-    httpStatusCode: status13.OK,
+    httpStatusCode: status14.OK,
     success: true,
     message: "Invitation canceled",
     data: result
@@ -1991,17 +2420,17 @@ var InvitationRoutes = router4;
 import { Router as Router5 } from "express";
 
 // src/app/module/review/review.controller.ts
-import status15 from "http-status";
+import status16 from "http-status";
 
 // src/app/module/review/review.service.ts
-import status14 from "http-status";
+import status15 from "http-status";
 var createReview = async (user, payload) => {
   const event = await prisma.event.findUnique({
     where: { id: payload.eventId }
   });
-  if (!event) throw new AppError_default(status14.NOT_FOUND, "Event not found");
+  if (!event) throw new AppError_default(status15.NOT_FOUND, "Event not found");
   if (event.organizerId === user.userId) {
-    throw new AppError_default(status14.BAD_REQUEST, "Organizer cannot review own event");
+    throw new AppError_default(status15.BAD_REQUEST, "Organizer cannot review own event");
   }
   const participation = await prisma.participation.findUnique({
     where: {
@@ -2012,7 +2441,7 @@ var createReview = async (user, payload) => {
     }
   });
   if (!participation || participation.status !== ParticipationStatus.APPROVED) {
-    throw new AppError_default(status14.FORBIDDEN, "You did not attend this event");
+    throw new AppError_default(status15.FORBIDDEN, "You did not attend this event");
   }
   const existing = await prisma.review.findUnique({
     where: {
@@ -2023,7 +2452,7 @@ var createReview = async (user, payload) => {
     }
   });
   if (existing) {
-    throw new AppError_default(status14.BAD_REQUEST, "Already reviewed");
+    throw new AppError_default(status15.BAD_REQUEST, "Already reviewed");
   }
   return prisma.review.create({
     data: {
@@ -2038,9 +2467,9 @@ var updateReview = async (user, reviewId, payload) => {
   const review = await prisma.review.findUnique({
     where: { id: reviewId }
   });
-  if (!review) throw new AppError_default(status14.NOT_FOUND, "Review not found");
+  if (!review) throw new AppError_default(status15.NOT_FOUND, "Review not found");
   if (review.userId !== user.userId) {
-    throw new AppError_default(status14.FORBIDDEN, "Not authorized");
+    throw new AppError_default(status15.FORBIDDEN, "Not authorized");
   }
   return prisma.review.update({
     where: { id: reviewId },
@@ -2056,13 +2485,13 @@ var deleteReview = async (user, reviewId) => {
     }
   });
   if (!review) {
-    throw new AppError_default(status14.NOT_FOUND, "Review not found");
+    throw new AppError_default(status15.NOT_FOUND, "Review not found");
   }
   const isOwner = review.userId === user.userId;
   const isOrganizer = review.event.organizerId === user.userId;
   const isAdmin = user.role === "ADMIN";
   if (!isOwner && !isOrganizer && !isAdmin) {
-    throw new AppError_default(status14.FORBIDDEN, "Not authorized");
+    throw new AppError_default(status15.FORBIDDEN, "Not authorized");
   }
   return prisma.review.delete({
     where: { id: reviewId }
@@ -2092,16 +2521,16 @@ var getMyReviews = async (user) => {
 var getOrganizerEventReviewsByEventId = async (user, eventId) => {
   try {
     if (!user?.userId) {
-      throw new AppError_default(status14.UNAUTHORIZED, "Unauthorized access");
+      throw new AppError_default(status15.UNAUTHORIZED, "Unauthorized access");
     }
     const event = await prisma.event.findUnique({
       where: { id: eventId }
     });
     if (!event) {
-      throw new AppError_default(status14.NOT_FOUND, "Event not found");
+      throw new AppError_default(status15.NOT_FOUND, "Event not found");
     }
     if (event.organizerId !== user.userId) {
-      throw new AppError_default(status14.FORBIDDEN, "You are not the organizer of this event");
+      throw new AppError_default(status15.FORBIDDEN, "You are not the organizer of this event");
     }
     const reviews = await prisma.review.findMany({
       where: { eventId },
@@ -2116,7 +2545,7 @@ var getOrganizerEventReviewsByEventId = async (user, eventId) => {
   } catch (error) {
     if (error instanceof AppError_default) throw error;
     throw new AppError_default(
-      status14.INTERNAL_SERVER_ERROR,
+      status15.INTERNAL_SERVER_ERROR,
       "Failed to fetch event reviews"
     );
   }
@@ -2135,7 +2564,7 @@ var createReview2 = catchAsync(async (req, res) => {
   const user = req.user;
   const result = await ReviewService.createReview(user, req.body);
   sendResponse(res, {
-    httpStatusCode: status15.CREATED,
+    httpStatusCode: status16.CREATED,
     success: true,
     message: "Review created",
     data: result
@@ -2146,7 +2575,7 @@ var updateReview2 = catchAsync(async (req, res) => {
   const { id } = req.params;
   const result = await ReviewService.updateReview(user, id, req.body);
   sendResponse(res, {
-    httpStatusCode: status15.OK,
+    httpStatusCode: status16.OK,
     success: true,
     message: "Review updated",
     data: result
@@ -2157,7 +2586,7 @@ var deleteReview2 = catchAsync(async (req, res) => {
   const { id } = req.params;
   const result = await ReviewService.deleteReview(user, id);
   sendResponse(res, {
-    httpStatusCode: status15.OK,
+    httpStatusCode: status16.OK,
     success: true,
     message: "Review deleted",
     data: result
@@ -2167,7 +2596,7 @@ var getEventReviews2 = catchAsync(async (req, res) => {
   const { eventId } = req.params;
   const result = await ReviewService.getEventReviews(eventId);
   sendResponse(res, {
-    httpStatusCode: status15.OK,
+    httpStatusCode: status16.OK,
     success: true,
     message: "Event reviews fetched",
     data: result
@@ -2177,7 +2606,7 @@ var getMyReviews2 = catchAsync(async (req, res) => {
   const user = req.user;
   const result = await ReviewService.getMyReviews(user);
   sendResponse(res, {
-    httpStatusCode: status15.OK,
+    httpStatusCode: status16.OK,
     success: true,
     message: "My reviews fetched",
     data: result
@@ -2192,7 +2621,7 @@ var getOrganizerEventReviewsByEventId2 = catchAsync(
       eventId
     );
     sendResponse(res, {
-      httpStatusCode: status15.OK,
+      httpStatusCode: status16.OK,
       success: true,
       message: "Event reviews fetched",
       data: result
@@ -2245,10 +2674,10 @@ var ReviewRoutes = router5;
 import { Router as Router6 } from "express";
 
 // src/app/module/payment/payment.controller.ts
-import status17 from "http-status";
+import status18 from "http-status";
 
 // src/app/module/payment/payment.service.ts
-import status16 from "http-status";
+import status17 from "http-status";
 import { v4 as uuidv4 } from "uuid";
 
 // src/app/config/stripe.config.ts
@@ -2280,7 +2709,7 @@ var createStripeSession = async (paymentId, amount) => {
 };
 var initiatePayment = async (user, payload) => {
   if (!payload.eventId && !payload.invitationId) {
-    throw new AppError_default(status16.BAD_REQUEST, "Invalid payment target");
+    throw new AppError_default(status17.BAD_REQUEST, "Invalid payment target");
   }
   let amount = 0;
   let participationId;
@@ -2295,7 +2724,7 @@ var initiatePayment = async (user, payload) => {
     });
     if (existingParticipation?.status === ParticipationStatus.APPROVED) {
       throw new AppError_default(
-        status16.BAD_REQUEST,
+        status17.BAD_REQUEST,
         "You already joined this event"
       );
     }
@@ -2306,7 +2735,7 @@ var initiatePayment = async (user, payload) => {
     });
     if (invitation?.status === InvitationStatus.ACCEPTED) {
       throw new AppError_default(
-        status16.BAD_REQUEST,
+        status17.BAD_REQUEST,
         "Invitation already accepted"
       );
     }
@@ -2326,7 +2755,7 @@ var initiatePayment = async (user, payload) => {
     }
   });
   if (successPayment) {
-    throw new AppError_default(status16.BAD_REQUEST, "Payment already completed");
+    throw new AppError_default(status17.BAD_REQUEST, "Payment already completed");
   }
   const existingPendingPayment = await prisma.payment.findFirst({
     where: {
@@ -2361,7 +2790,7 @@ var initiatePayment = async (user, payload) => {
     });
     if (event.organizerId === user.userId) {
       throw new AppError_default(
-        status16.BAD_REQUEST,
+        status17.BAD_REQUEST,
         "Organizer cannot join own event"
       );
     }
@@ -2411,7 +2840,7 @@ var initiatePayment = async (user, payload) => {
       include: { event: true }
     });
     if (invitation.userId !== user.userId) {
-      throw new AppError_default(status16.FORBIDDEN, "Not your invitation");
+      throw new AppError_default(status17.FORBIDDEN, "Not your invitation");
     }
     if (invitation.event.fee === 0) {
       await prisma.$transaction(async (tx) => {
@@ -2602,7 +3031,7 @@ var handleStripeWebhookEvent = async (event) => {
 };
 var getMyPayments = async (user, query) => {
   if (!user?.userId) {
-    throw new AppError_default(status16.UNAUTHORIZED, "Unauthorized");
+    throw new AppError_default(status17.UNAUTHORIZED, "Unauthorized");
   }
   const queryBuilder = new QueryBuilder(
     prisma.payment,
@@ -2626,7 +3055,7 @@ var getMyPayments = async (user, query) => {
 };
 var getOrganizerPayments = async (user, query) => {
   if (!user?.userId) {
-    throw new AppError_default(status16.UNAUTHORIZED, "Unauthorized");
+    throw new AppError_default(status17.UNAUTHORIZED, "Unauthorized");
   }
   const queryBuilder = new QueryBuilder(
     prisma.payment,
@@ -2666,7 +3095,7 @@ var getOrganizerPayments = async (user, query) => {
 };
 var getAllPayments = async (user, query) => {
   if (user.role !== "ADMIN") {
-    throw new AppError_default(status16.UNAUTHORIZED, "Unauthorized access");
+    throw new AppError_default(status17.UNAUTHORIZED, "Unauthorized access");
   }
   const queryBuilder = new QueryBuilder(
     prisma.payment,
@@ -2701,7 +3130,7 @@ var initiatePayment2 = catchAsync(async (req, res) => {
   const result = await PaymentService.initiatePayment(user, req.body);
   sendResponse(res, {
     success: true,
-    httpStatusCode: status17.OK,
+    httpStatusCode: status18.OK,
     message: "Payment session created",
     data: result
   });
@@ -2718,7 +3147,7 @@ var handleStripeWebhookEvent2 = catchAsync(
     const result = await PaymentService.handleStripeWebhookEvent(event);
     sendResponse(res, {
       success: true,
-      httpStatusCode: status17.OK,
+      httpStatusCode: status18.OK,
       message: "Webhook processed",
       data: result
     });
@@ -2729,7 +3158,7 @@ var getMyPayments2 = catchAsync(async (req, res) => {
   const query = req.query;
   const result = await PaymentService.getMyPayments(user, query);
   sendResponse(res, {
-    httpStatusCode: status17.OK,
+    httpStatusCode: status18.OK,
     success: true,
     message: "My payments fetched",
     data: result
@@ -2740,7 +3169,7 @@ var getOrganizerPayments2 = catchAsync(async (req, res) => {
   const query = req.query;
   const result = await PaymentService.getOrganizerPayments(user, query);
   sendResponse(res, {
-    httpStatusCode: status17.OK,
+    httpStatusCode: status18.OK,
     success: true,
     message: "Organizer payments fetched",
     data: result
@@ -2751,7 +3180,7 @@ var getAllPayments2 = catchAsync(async (req, res) => {
   const query = req.query;
   const result = await PaymentService.getAllPayments(user, query);
   sendResponse(res, {
-    httpStatusCode: status17.OK,
+    httpStatusCode: status18.OK,
     success: true,
     message: "All payments fetched",
     data: result
@@ -2793,14 +3222,14 @@ var PaymentRoutes = router6;
 import { Router as Router7 } from "express";
 
 // src/app/module/file/file.controller.ts
-import status20 from "http-status";
+import status21 from "http-status";
 
 // src/app/module/file/file.service.ts
-import status19 from "http-status";
+import status20 from "http-status";
 
 // src/app/config/cloudinary.config.ts
 import { v2 as cloudinary } from "cloudinary";
-import status18 from "http-status";
+import status19 from "http-status";
 cloudinary.config({
   cloud_name: envVars.CLOUDINARY.CLOUDINARY_CLOUD_NAME,
   api_key: envVars.CLOUDINARY.CLOUDINARY_API_KEY,
@@ -2820,7 +3249,7 @@ var deleteFileFromCloudinary = async (url) => {
   } catch (error) {
     console.error("Error deleting file from Cloudinary:", error);
     throw new AppError_default(
-      status18.INTERNAL_SERVER_ERROR,
+      status19.INTERNAL_SERVER_ERROR,
       "Failed to delete image from Cloudinary"
     );
   }
@@ -2830,7 +3259,7 @@ var cloudinaryUpload = cloudinary;
 // src/app/module/file/file.service.ts
 var uploadImage = async (files) => {
   if (!files || files.length === 0) {
-    throw new AppError_default(status19.BAD_REQUEST, "No file uploaded");
+    throw new AppError_default(status20.BAD_REQUEST, "No file uploaded");
   }
   if (files.length === 1) {
     return {
@@ -2843,7 +3272,7 @@ var uploadImage = async (files) => {
 };
 var deleteImage = async (urls) => {
   if (!urls) {
-    throw new AppError_default(status19.BAD_REQUEST, "Image URL is required");
+    throw new AppError_default(status20.BAD_REQUEST, "Image URL is required");
   }
   if (Array.isArray(urls)) {
     await Promise.all(
@@ -2863,11 +3292,11 @@ var FileService = {
 var uploadImage2 = catchAsync(async (req, res) => {
   const files = req.files;
   if (files?.length > 10) {
-    throw new AppError_default(status20.BAD_REQUEST, "Maximum 10 images are allowed");
+    throw new AppError_default(status21.BAD_REQUEST, "Maximum 10 images are allowed");
   }
   const result = await FileService.uploadImage(files);
   sendResponse(res, {
-    httpStatusCode: status20.OK,
+    httpStatusCode: status21.OK,
     success: true,
     message: "Image uploaded successfully",
     data: result
@@ -2877,7 +3306,7 @@ var deleteImage2 = catchAsync(async (req, res) => {
   const { url } = req.body;
   const result = await FileService.deleteImage(url);
   sendResponse(res, {
-    httpStatusCode: status20.OK,
+    httpStatusCode: status21.OK,
     success: true,
     message: "Image deleted successfully",
     data: result
@@ -2930,13 +3359,13 @@ var FileRoutes = router7;
 import { Router as Router8 } from "express";
 
 // src/app/module/admin/admin.controller.ts
-import status22 from "http-status";
+import status23 from "http-status";
 
 // src/app/module/admin/admin.service.ts
-import status21 from "http-status";
+import status22 from "http-status";
 var getAllUsers = async (user, query) => {
   if (user.role !== "ADMIN") {
-    throw new AppError_default(status21.UNAUTHORIZED, "Unauthorized access");
+    throw new AppError_default(status22.UNAUTHORIZED, "Unauthorized access");
   }
   const queryBuilder = new QueryBuilder(
     prisma.user,
@@ -2950,7 +3379,7 @@ var getAllUsers = async (user, query) => {
 };
 var getAllAdmins = async (user, query) => {
   if (user.role !== "ADMIN") {
-    throw new AppError_default(status21.UNAUTHORIZED, "Unauthorized access");
+    throw new AppError_default(status22.UNAUTHORIZED, "Unauthorized access");
   }
   const queryBuilder = new QueryBuilder(
     prisma.user,
@@ -2967,16 +3396,16 @@ var getSingleUser = async (id) => {
     where: { id }
   });
   if (!user || user.isDeleted) {
-    throw new AppError_default(status21.NOT_FOUND, "User not found");
+    throw new AppError_default(status22.NOT_FOUND, "User not found");
   }
   return user;
 };
 var updateUserStatus = async (id, statusValue, user) => {
   if (user.role !== "ADMIN") {
-    throw new AppError_default(status21.UNAUTHORIZED, "You are not authorized");
+    throw new AppError_default(status22.UNAUTHORIZED, "You are not authorized");
   }
   if (user.userId === id) {
-    throw new AppError_default(status21.BAD_REQUEST, "You cannot suspended yourself");
+    throw new AppError_default(status22.BAD_REQUEST, "You cannot suspended yourself");
   }
   return prisma.user.update({
     where: { id },
@@ -2985,10 +3414,10 @@ var updateUserStatus = async (id, statusValue, user) => {
 };
 var deleteUser = async (id, user) => {
   if (user.role !== "ADMIN") {
-    throw new AppError_default(status21.UNAUTHORIZED, "You are not authorized");
+    throw new AppError_default(status22.UNAUTHORIZED, "You are not authorized");
   }
   if (user.userId === id) {
-    throw new AppError_default(status21.BAD_REQUEST, "You cannot delete yourself");
+    throw new AppError_default(status22.BAD_REQUEST, "You cannot delete yourself");
   }
   return prisma.user.update({
     where: { id },
@@ -3000,16 +3429,16 @@ var deleteUser = async (id, user) => {
 };
 var updateUserRole = async (id, role, user) => {
   if (user.role !== "ADMIN") {
-    throw new AppError_default(status21.UNAUTHORIZED, "You are not authorized");
+    throw new AppError_default(status22.UNAUTHORIZED, "You are not authorized");
   }
   if (user.userId === id) {
-    throw new AppError_default(status21.BAD_REQUEST, "You cannot change your own role");
+    throw new AppError_default(status22.BAD_REQUEST, "You cannot change your own role");
   }
   const targetUser = await prisma.user.findUnique({
     where: { id }
   });
   if (!targetUser || targetUser.isDeleted) {
-    throw new AppError_default(status21.NOT_FOUND, "User not found");
+    throw new AppError_default(status22.NOT_FOUND, "User not found");
   }
   return prisma.user.update({
     where: { id },
@@ -3102,11 +3531,11 @@ var AdminService = {
 // src/app/module/admin/admin.controller.ts
 var getAllUsers2 = catchAsync(async (req, res) => {
   const user = req.user;
-  if (!user) throw new AppError_default(status22.UNAUTHORIZED, "Unauthorized");
+  if (!user) throw new AppError_default(status23.UNAUTHORIZED, "Unauthorized");
   const query = req.query;
   const result = await AdminService.getAllUsers(user, query);
   sendResponse(res, {
-    httpStatusCode: status22.OK,
+    httpStatusCode: status23.OK,
     success: true,
     message: "Users fetched",
     data: result
@@ -3114,11 +3543,11 @@ var getAllUsers2 = catchAsync(async (req, res) => {
 });
 var getAllAdmins2 = catchAsync(async (req, res) => {
   const user = req.user;
-  if (!user) throw new AppError_default(status22.UNAUTHORIZED, "Unauthorized");
+  if (!user) throw new AppError_default(status23.UNAUTHORIZED, "Unauthorized");
   const query = req.query;
   const result = await AdminService.getAllAdmins(user, query);
   sendResponse(res, {
-    httpStatusCode: status22.OK,
+    httpStatusCode: status23.OK,
     success: true,
     message: "Admins fetched",
     data: result
@@ -3128,10 +3557,10 @@ var updateUserStatus2 = catchAsync(async (req, res) => {
   const { id } = req.params;
   const { status: statusValue } = req.body;
   const user = req.user;
-  if (!user) throw new AppError_default(status22.UNAUTHORIZED, "Unauthorized");
+  if (!user) throw new AppError_default(status23.UNAUTHORIZED, "Unauthorized");
   const result = await AdminService.updateUserStatus(id, statusValue, user);
   sendResponse(res, {
-    httpStatusCode: status22.OK,
+    httpStatusCode: status23.OK,
     success: true,
     message: "User status updated",
     data: result
@@ -3140,10 +3569,10 @@ var updateUserStatus2 = catchAsync(async (req, res) => {
 var deleteUser2 = catchAsync(async (req, res) => {
   const { id } = req.params;
   const user = req.user;
-  if (!user) throw new AppError_default(status22.UNAUTHORIZED, "Unauthorized");
+  if (!user) throw new AppError_default(status23.UNAUTHORIZED, "Unauthorized");
   const result = await AdminService.deleteUser(id, user);
   sendResponse(res, {
-    httpStatusCode: status22.OK,
+    httpStatusCode: status23.OK,
     success: true,
     message: "User deleted",
     data: result
@@ -3153,14 +3582,14 @@ var updateUserRole2 = catchAsync(async (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
   const user = req.user;
-  if (!user) throw new AppError_default(status22.UNAUTHORIZED, "Unauthorized");
+  if (!user) throw new AppError_default(status23.UNAUTHORIZED, "Unauthorized");
   const result = await AdminService.updateUserRole(
     id,
     role,
     user
   );
   sendResponse(res, {
-    httpStatusCode: status22.OK,
+    httpStatusCode: status23.OK,
     success: true,
     message: "User role updated",
     data: result
@@ -3169,7 +3598,7 @@ var updateUserRole2 = catchAsync(async (req, res) => {
 var getAdminStats2 = catchAsync(async (req, res) => {
   const result = await AdminService.getAdminStats();
   sendResponse(res, {
-    httpStatusCode: status22.OK,
+    httpStatusCode: status23.OK,
     success: true,
     message: "Admin stats fetched",
     data: result
@@ -3202,7 +3631,7 @@ var AdminRoutes = router8;
 import { Router as Router9 } from "express";
 
 // src/app/module/user/user.controller.ts
-import status23 from "http-status";
+import status24 from "http-status";
 
 // src/app/module/user/user.service.ts
 var getUserStats = async (user) => {
@@ -3300,7 +3729,7 @@ var getMyStats = catchAsync(async (req, res) => {
   const user = req.user;
   const result = await UserService.getUserStats(user);
   sendResponse(res, {
-    httpStatusCode: status23.OK,
+    httpStatusCode: status24.OK,
     success: true,
     message: "User stats fetched",
     data: result
@@ -3319,10 +3748,10 @@ var UserRoutes = router9;
 import { Router as Router10 } from "express";
 
 // src/app/module/profile/profile.controller.ts
-import status25 from "http-status";
+import status26 from "http-status";
 
 // src/app/module/profile/profile.service.ts
-import status24 from "http-status";
+import status25 from "http-status";
 var getMyProfile = async (user) => {
   const foundUser = await prisma.user.findUnique({
     where: {
@@ -3330,7 +3759,7 @@ var getMyProfile = async (user) => {
     }
   });
   if (!foundUser) {
-    throw new AppError_default(status24.NOT_FOUND, "User not found");
+    throw new AppError_default(status25.NOT_FOUND, "User not found");
   }
   return foundUser;
 };
@@ -3350,7 +3779,7 @@ var getMyProfile2 = catchAsync(async (req, res) => {
   const user = req.user;
   const result = await ProfileService.getMyProfile(user);
   sendResponse(res, {
-    httpStatusCode: status25.OK,
+    httpStatusCode: status26.OK,
     success: true,
     message: "Profile fetched",
     data: result
@@ -3360,7 +3789,7 @@ var updateProfile2 = catchAsync(async (req, res) => {
   const user = req.user;
   const result = await ProfileService.updateProfile(user, req.body);
   sendResponse(res, {
-    httpStatusCode: status25.OK,
+    httpStatusCode: status26.OK,
     success: true,
     message: "Profile updated",
     data: result
@@ -3381,10 +3810,10 @@ var ProfileRoutes = router10;
 import { Router as Router11 } from "express";
 
 // src/app/module/category/category.controller.ts
-import status27 from "http-status";
+import status28 from "http-status";
 
 // src/app/module/category/category.service.ts
-import status26 from "http-status";
+import status27 from "http-status";
 var createCategory = async (payload) => {
   return prisma.category.create({
     data: payload
@@ -3401,7 +3830,7 @@ var getSingleCategory = async (id) => {
     where: { id }
   });
   if (!category || category.isDeleted) {
-    throw new AppError_default(status26.NOT_FOUND, "Category not found");
+    throw new AppError_default(status27.NOT_FOUND, "Category not found");
   }
   return category;
 };
@@ -3434,7 +3863,7 @@ var CategoryService = {
 var createCategory2 = catchAsync(async (req, res) => {
   const result = await CategoryService.createCategory(req.body);
   sendResponse(res, {
-    httpStatusCode: status27.CREATED,
+    httpStatusCode: status28.CREATED,
     success: true,
     message: "Category created",
     data: result
@@ -3443,7 +3872,7 @@ var createCategory2 = catchAsync(async (req, res) => {
 var getAllCategories2 = catchAsync(async (req, res) => {
   const result = await CategoryService.getAllCategories();
   sendResponse(res, {
-    httpStatusCode: status27.OK,
+    httpStatusCode: status28.OK,
     success: true,
     message: "Categories fetched",
     data: result
@@ -3453,7 +3882,7 @@ var getSingleCategory2 = catchAsync(async (req, res) => {
   const { id } = req.params;
   const result = await CategoryService.getSingleCategory(id);
   sendResponse(res, {
-    httpStatusCode: status27.OK,
+    httpStatusCode: status28.OK,
     success: true,
     message: "Category fetched",
     data: result
@@ -3463,7 +3892,7 @@ var updateCategory2 = catchAsync(async (req, res) => {
   const { id } = req.params;
   const result = await CategoryService.updateCategory(id, req.body);
   sendResponse(res, {
-    httpStatusCode: status27.OK,
+    httpStatusCode: status28.OK,
     success: true,
     message: "Category updated",
     data: result
@@ -3473,7 +3902,7 @@ var deleteCategory2 = catchAsync(async (req, res) => {
   const { id } = req.params;
   const result = await CategoryService.deleteCategory(id);
   sendResponse(res, {
-    httpStatusCode: status27.OK,
+    httpStatusCode: status28.OK,
     success: true,
     message: "Category deleted",
     data: result
@@ -3500,10 +3929,10 @@ var CategoryRoutes = router11;
 import { Router as Router12 } from "express";
 
 // src/app/module/banner/banner.controller.ts
-import status29 from "http-status";
+import status30 from "http-status";
 
 // src/app/module/banner/banner.service.ts
-import status28 from "http-status";
+import status29 from "http-status";
 var createBanner = async (payload) => {
   return prisma.banner.create({
     data: payload
@@ -3529,7 +3958,7 @@ var getBannerById = async (id) => {
     where: { id }
   });
   if (!banner || banner.isDeleted) {
-    throw new AppError_default(status28.NOT_FOUND, "Banner not found");
+    throw new AppError_default(status29.NOT_FOUND, "Banner not found");
   }
   return banner;
 };
@@ -3555,7 +3984,7 @@ var updateBannerStatus = async (id, isActive) => {
     where: { id }
   });
   if (!banner || banner.isDeleted) {
-    throw new AppError_default(status28.NOT_FOUND, "Banner not found");
+    throw new AppError_default(status29.NOT_FOUND, "Banner not found");
   }
   return prisma.banner.update({
     where: { id },
@@ -3576,7 +4005,7 @@ var BannerService = {
 var createBanner2 = catchAsync(async (req, res) => {
   const result = await BannerService.createBanner(req.body);
   sendResponse(res, {
-    httpStatusCode: status29.CREATED,
+    httpStatusCode: status30.CREATED,
     success: true,
     message: "Banner created",
     data: result
@@ -3585,7 +4014,7 @@ var createBanner2 = catchAsync(async (req, res) => {
 var getAllBanners2 = catchAsync(async (req, res) => {
   const result = await BannerService.getAllBanners();
   sendResponse(res, {
-    httpStatusCode: status29.OK,
+    httpStatusCode: status30.OK,
     success: true,
     message: "Banners fetched",
     data: result
@@ -3594,7 +4023,7 @@ var getAllBanners2 = catchAsync(async (req, res) => {
 var getActiveBanners2 = catchAsync(async (req, res) => {
   const result = await BannerService.getActiveBanners();
   sendResponse(res, {
-    httpStatusCode: status29.OK,
+    httpStatusCode: status30.OK,
     success: true,
     message: "Active banners fetched",
     data: result
@@ -3604,7 +4033,7 @@ var updateBanner2 = catchAsync(async (req, res) => {
   const { id } = req.params;
   const result = await BannerService.updateBanner(id, req.body);
   sendResponse(res, {
-    httpStatusCode: status29.OK,
+    httpStatusCode: status30.OK,
     success: true,
     message: "Banner updated",
     data: result
@@ -3614,7 +4043,7 @@ var getBannerById2 = catchAsync(async (req, res) => {
   const { id } = req.params;
   const result = await BannerService.getBannerById(id);
   sendResponse(res, {
-    httpStatusCode: status29.OK,
+    httpStatusCode: status30.OK,
     success: true,
     message: "Banner fetched",
     data: result
@@ -3624,7 +4053,7 @@ var deleteBanner2 = catchAsync(async (req, res) => {
   const { id } = req.params;
   const result = await BannerService.deleteBanner(id);
   sendResponse(res, {
-    httpStatusCode: status29.OK,
+    httpStatusCode: status30.OK,
     success: true,
     message: "Banner deleted",
     data: result
@@ -3634,11 +4063,11 @@ var updateBannerStatus2 = catchAsync(async (req, res) => {
   const { id } = req.params;
   const { isActive } = req.body;
   if (typeof isActive !== "boolean") {
-    throw new AppError_default(status29.BAD_REQUEST, "isActive must be boolean");
+    throw new AppError_default(status30.BAD_REQUEST, "isActive must be boolean");
   }
   const result = await BannerService.updateBannerStatus(id, isActive);
   sendResponse(res, {
-    httpStatusCode: status29.OK,
+    httpStatusCode: status30.OK,
     success: true,
     message: "Banner status updated",
     data: result
@@ -3673,7 +4102,7 @@ var BannerRoutes = router12;
 import { Router as Router13 } from "express";
 
 // src/app/module/public/public.controller.ts
-import status30 from "http-status";
+import status31 from "http-status";
 
 // src/app/module/public/public.service.ts
 var getStats = async () => {
@@ -3713,7 +4142,7 @@ var PublicService = {
 var getStats2 = catchAsync(async (req, res) => {
   const result = await PublicService.getStats();
   sendResponse(res, {
-    httpStatusCode: status30.OK,
+    httpStatusCode: status31.OK,
     success: true,
     message: "User stats fetched",
     data: result
@@ -3732,13 +4161,13 @@ var PublicRoutes = router13;
 import { Router as Router14 } from "express";
 
 // src/app/module/ticket/ticket.controller.ts
-import status32 from "http-status";
+import status33 from "http-status";
 
 // src/app/module/ticket/ticket.service.ts
-import status31 from "http-status";
+import status32 from "http-status";
 var getUserTickets = async (userId, query) => {
   if (!userId) {
-    throw new AppError_default(status31.BAD_REQUEST, "UserId is required");
+    throw new AppError_default(status32.BAD_REQUEST, "UserId is required");
   }
   const queryBuilder = new QueryBuilder(
     prisma.ticket,
@@ -3763,12 +4192,12 @@ var checkIn = async (qrCode, organizerId) => {
     where: { qrCode },
     include: { event: true, user: true }
   });
-  if (!ticket) throw new AppError_default(status31.BAD_REQUEST, "Invalid ticket");
+  if (!ticket) throw new AppError_default(status32.BAD_REQUEST, "Invalid ticket");
   if (ticket.status === "USED") {
-    throw new AppError_default(status31.BAD_REQUEST, "Ticket already used");
+    throw new AppError_default(status32.BAD_REQUEST, "Ticket already used");
   }
   if (ticket.event.organizerId !== organizerId) {
-    throw new AppError_default(status31.FORBIDDEN, "Unauthorized");
+    throw new AppError_default(status32.FORBIDDEN, "Unauthorized");
   }
   await prisma.ticket.update({
     where: { id: ticket.id },
@@ -3799,7 +4228,7 @@ var getMyTickets = catchAsync(async (req, res) => {
   const query = req.query;
   const result = await TicketService.getUserTickets(user.userId, query);
   sendResponse(res, {
-    httpStatusCode: status32.OK,
+    httpStatusCode: status33.OK,
     success: true,
     message: "My tickets fetched",
     data: result
@@ -3809,7 +4238,7 @@ var getEventTickets2 = catchAsync(async (req, res) => {
   const { eventId } = req.params;
   const result = await TicketService.getEventTickets(eventId);
   sendResponse(res, {
-    httpStatusCode: status32.OK,
+    httpStatusCode: status33.OK,
     success: true,
     message: "Event tickets fetched",
     data: result
@@ -3820,7 +4249,7 @@ var checkInTicket = catchAsync(async (req, res) => {
   const organizerId = req.user.userId;
   const result = await TicketService.checkIn(qrCode, organizerId);
   sendResponse(res, {
-    httpStatusCode: status32.OK,
+    httpStatusCode: status33.OK,
     success: true,
     message: "Ticket checked in",
     data: result

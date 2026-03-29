@@ -14,6 +14,9 @@ import {
 } from "../../../generated/prisma/enums";
 import { IQueryParams } from "../../interfaces/query.interface";
 import { QueryBuilder } from "../../utils/QueryBuilder";
+import { sendEmail } from "../../utils/email";
+import { generateEventInvoicePdf } from "./payment.utils";
+import { uploadFileToCloudinary } from "../../config/cloudinary.config";
 
 const createStripeSession = async (paymentId: string, amount: number) => {
      const session = await stripe.checkout.sessions.create({
@@ -296,6 +299,7 @@ const handleStripeWebhookEvent = async (event: Stripe.Event) => {
           case "checkout.session.completed": {
                const session = event.data.object as any;
                const paymentId = session.metadata?.paymentId;
+
                if (!paymentId) return { message: "Missing paymentId" };
 
                const payment = await prisma.payment.findUnique({
@@ -303,12 +307,13 @@ const handleStripeWebhookEvent = async (event: Stripe.Event) => {
                     include: {
                          participation: { include: { event: true } },
                          invitation: { include: { event: true } },
+                         user: true,
                     },
                });
 
                if (!payment) return { message: "Payment not found" };
 
-               //  CRITICAL FIX (prevent double payment)
+               // prevent duplicate webhook
                if (payment.status === PaymentStatus.SUCCESS) {
                     return { message: "Already paid, skipping duplicate" };
                }
@@ -329,7 +334,11 @@ const handleStripeWebhookEvent = async (event: Stripe.Event) => {
                     return { message: "Event expired, payment canceled" };
                }
 
+               let pdfBuffer: Buffer | null = null;
+               let invoiceUrl: string | null = null;
+
                await prisma.$transaction(async (tx) => {
+                    // update payment
                     await tx.payment.update({
                          where: { id: paymentId },
                          data: {
@@ -339,7 +348,44 @@ const handleStripeWebhookEvent = async (event: Stripe.Event) => {
                          },
                     });
 
+                    // =========================
+                    // INVOICE GENERATION
+                    // =========================
+                    try {
+                         pdfBuffer = await generateEventInvoicePdf({
+                              invoiceId: payment.id,
+                              userName: payment.user.name,
+                              userEmail: payment.user.email,
+                              eventName: eventData.title,
+                              eventDate: eventData.dateTime.toString(),
+                              amount: payment.amount,
+                              transactionId: payment.transactionId,
+                              paymentDate: new Date().toISOString(),
+                         });
+                         console.log("pdfBuffer",pdfBuffer);
+
+                         const upload = await uploadFileToCloudinary(
+                              pdfBuffer,
+                              `events/invoices/invoice-${payment.id}.pdf`
+                         );
+                         console.log("upload",upload);
+
+                         invoiceUrl = upload?.secure_url || null;
+
+                         console.log("invoiceUrl",invoiceUrl);
+
+                         // save invoice URL
+                         await tx.payment.update({
+                              where: { id: paymentId },
+                              data: { invoiceUrl },
+                         });
+                    } catch (err) {
+                         console.error("Invoice generation failed:", err);
+                    }
+
+                    // =========================
                     // PARTICIPATION
+                    // =========================
                     if (payment.participationId) {
                          await tx.participation.update({
                               where: { id: payment.participationId },
@@ -347,9 +393,7 @@ const handleStripeWebhookEvent = async (event: Stripe.Event) => {
                          });
 
                          const existingTicket = await tx.ticket.findFirst({
-                              where: {
-                                   participationId: payment.participationId,
-                              },
+                              where: { participationId: payment.participationId },
                          });
 
                          if (!existingTicket) {
@@ -364,7 +408,9 @@ const handleStripeWebhookEvent = async (event: Stripe.Event) => {
                          }
                     }
 
+                    // =========================
                     // INVITATION
+                    // =========================
                     if (payment.invitationId && payment.invitation) {
                          let participation = await tx.participation.findFirst({
                               where: {
@@ -384,9 +430,7 @@ const handleStripeWebhookEvent = async (event: Stripe.Event) => {
                          }
 
                          const existingTicket = await tx.ticket.findFirst({
-                              where: {
-                                   participationId: participation.id,
-                              },
+                              where: { participationId: participation.id },
                          });
 
                          if (!existingTicket) {
@@ -406,6 +450,35 @@ const handleStripeWebhookEvent = async (event: Stripe.Event) => {
                          });
                     }
                });
+
+               if (invoiceUrl && pdfBuffer) {
+                    try {
+                         await sendEmail({
+                              to: payment.user.email,
+                              subject: `Payment Confirmation & Invoice - Invoice #${payment.id}`,
+                              templateName: "invoice",
+                              templateData: {
+                                   userName: payment.user.name,
+                                   invoiceId: payment.id,
+                                   transactionId: payment.transactionId,
+                                   paymentDate: new Date(payment.createdAt).toLocaleDateString(),
+                                   eventName: eventData.title,
+                                   eventDate: new Date(eventData.dateTime).toLocaleDateString(),
+                                   amount: payment.amount,
+                                   invoiceUrl,
+                              },
+                              attachments: [
+                                   {
+                                        filename: `Invoice-${payment.id}.pdf`,
+                                        content: pdfBuffer || Buffer.from(""),
+                                        contentType: "application/pdf",
+                                   },
+                              ],
+                         });
+                    } catch (emailError) {
+                         console.error("Email send failed:", emailError);
+                    }
+               }
 
                break;
           }
@@ -622,38 +695,38 @@ const getOrganizerPayments = async (
 
 
 const getAllPayments = async (
-  user: IRequestUser,
-  query: IQueryParams
+     user: IRequestUser,
+     query: IQueryParams
 ) => {
-  // Only admin allowed
-  if (user.role !== "ADMIN") {
-    throw new AppError(status.UNAUTHORIZED, "Unauthorized access");
-  }
+     // Only admin allowed
+     if (user.role !== "ADMIN") {
+          throw new AppError(status.UNAUTHORIZED, "Unauthorized access");
+     }
 
-  const queryBuilder = new QueryBuilder(
-    prisma.payment,
-    query
-  );
+     const queryBuilder = new QueryBuilder(
+          prisma.payment,
+          query
+     );
 
-  const result = await queryBuilder
-    .include({
-      user: true,
-      participation: {
-        include: {
-          event: true,
-        },
-      },
-      invitation: {
-        include: {
-          event: true,
-        },
-      },
-    })
-    .sort()
-    .paginate()
-    .execute();
+     const result = await queryBuilder
+          .include({
+               user: true,
+               participation: {
+                    include: {
+                         event: true,
+                    },
+               },
+               invitation: {
+                    include: {
+                         event: true,
+                    },
+               },
+          })
+          .sort()
+          .paginate()
+          .execute();
 
-  return result;
+     return result;
 };
 
 

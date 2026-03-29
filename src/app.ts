@@ -5,8 +5,12 @@ import { notFound } from "./app/middleware/notFound";
 import { IndexRoutes } from "./app/routes";
 import { PaymentController } from "./app/module/payment/payment.controller";
 import cors from "cors";
+import path from "path";
 
 const app: Application = express();
+app.set("view engine", "ejs");
+app.set("views",path.resolve(process.cwd(), `src/app/templates`) )
+
 app.use(cors({
      origin: function (origin, callback) {
           const allowedOrigins = [

@@ -1,15 +1,45 @@
 import { prisma } from "../../lib/prisma";
 import AppError from "../../errorHelpers/AppError";
 import status from "http-status";
+import { IQueryParams } from "../../interfaces/query.interface";
+import { QueryBuilder } from "../../utils/QueryBuilder";
 
 // Get all tickets of a user
-const getUserTickets = async (userId: string) => {
-  return prisma.ticket.findMany({
-    where: { userId },
-    include: { event: true },
-    orderBy: { createdAt: "desc" },
-  });
+// const getUserTickets = async (userId: string) => {
+//   return prisma.ticket.findMany({
+//     where: { userId },
+//     include: { event: true },
+//     orderBy: { createdAt: "desc" },
+//   });
+// };
+
+const getUserTickets = async (
+  userId: string,
+  query: IQueryParams
+) => {
+  if (!userId) {
+    throw new AppError(status.BAD_REQUEST, "UserId is required");
+  }
+
+  const queryBuilder = new QueryBuilder(
+    prisma.ticket,
+    query
+  );
+
+  const result = await queryBuilder
+    .where({
+      userId,
+    })
+    .include({
+      event: true,
+    })
+    .sort()
+    .paginate()
+    .execute();
+
+  return result;
 };
+
 
 // Get all tickets for an event
 const getEventTickets = async (eventId: string) => {

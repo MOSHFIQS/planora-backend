@@ -3,11 +3,14 @@ import status from "http-status";
 import { catchAsync } from "../../shared/catchAsync";
 import { sendResponse } from "../../shared/sendResponse";
 import { TicketService } from "./ticket.service";
+import { IQueryParams } from "../../interfaces/query.interface";
 
 // Get my tickets
 const getMyTickets = catchAsync(async (req: Request, res: Response) => {
   const user = req.user!;
-  const result = await TicketService.getUserTickets(user.userId);
+  const query = req.query;
+
+  const result = await TicketService.getUserTickets(user.userId, query as IQueryParams);
 
   sendResponse(res, {
     httpStatusCode: status.OK,

@@ -2002,28 +2002,16 @@ var EventController = {
 // src/app/module/event/event.route.ts
 var router2 = Router2();
 router2.get("/", EventController.getAllEvents);
+router2.get("/featured", checkAuth(Role.ADMIN), EventController.getFeaturedEvents);
 router2.get("/public/:id", checkAuth(Role.USER, Role.ADMIN), EventController.getSingleEventPublic);
+router2.get("/admin/all", checkAuth(Role.ADMIN), EventController.getAllEventsAdmin);
+router2.delete("/admin/:id", checkAuth(Role.ADMIN), EventController.deleteEventByAdmin);
+router2.patch("/admin/feature/:id", checkAuth(Role.ADMIN), EventController.updateFeaturedStatus);
 router2.post("/", checkAuth(Role.USER, Role.ADMIN), EventController.createEvent);
 router2.get("/me/events", checkAuth(Role.USER, Role.ADMIN), EventController.getMyEvents);
 router2.get("/:id", checkAuth(Role.USER, Role.ADMIN), EventController.organizersSingleEventById);
 router2.patch("/:id", checkAuth(Role.USER, Role.ADMIN), EventController.updateEvent);
 router2.delete("/:id", checkAuth(Role.USER, Role.ADMIN), EventController.deleteEventByOrganizer);
-router2.get("/admin/all", checkAuth(Role.ADMIN), EventController.getAllEventsAdmin);
-router2.delete(
-  "/admin/:id",
-  checkAuth(Role.ADMIN),
-  EventController.deleteEventByAdmin
-);
-router2.patch(
-  "/admin/feature/:id",
-  checkAuth(Role.ADMIN),
-  EventController.updateFeaturedStatus
-);
-router2.get(
-  "/featured",
-  checkAuth(Role.ADMIN),
-  EventController.getFeaturedEvents
-);
 var EventRoutes = router2;
 
 // src/app/module/participation/participation.route.ts

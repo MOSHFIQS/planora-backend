@@ -1,332 +1,156 @@
-model User {
-    id            String  @id @default(cuid())
-    name          String
-    email         String  @unique
-    emailVerified Boolean @default(false)
-
-    role   Role       @default(USER)
-    status UserStatus @default(ACTIVE)
-
-    isDeleted Boolean   @default(false)
-    deletedAt DateTime?
-
-    image String?
-
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    // Better Auth relations
-    sessions Session[]
-    accounts Account[]
-
-    // Planora relations
-    events         Event[]         @relation("OrganizerEvents")
-    participations Participation[]
-    invitations    Invitation[]
-    reviews        Review[]
-    payments       Payment[]
-    tickets        Ticket[]
-
-    @@map("user")
-}
-
-model Session {
-    id        String   @id
-    expiresAt DateTime
-    token     String
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-    ipAddress String?
-    userAgent String?
-    userId    String
-    user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-    @@unique([token])
-    @@index([userId])
-    @@map("session")
-}
-
-model Account {
-    id                    String    @id
-    accountId             String
-    providerId            String
-    userId                String
-    user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-    accessToken           String?
-    refreshToken          String?
-    idToken               String?
-    accessTokenExpiresAt  DateTime?
-    refreshTokenExpiresAt DateTime?
-    scope                 String?
-    password              String?
-    createdAt             DateTime  @default(now())
-    updatedAt             DateTime  @updatedAt
-
-    @@index([userId])
-    @@map("account")
-}
-
-model Verification {
-    id         String   @id
-    identifier String
-    value      String
-    expiresAt  DateTime
-    createdAt  DateTime @default(now())
-    updatedAt  DateTime @updatedAt
-
-    @@index([identifier])
-    @@map("verification")
-}
-
-enum Role {
-    USER
-    ADMIN
-}
-
-enum UserStatus {
-    ACTIVE
-    SUSPENDED
-}
-
-enum EventVisibility {
-    PUBLIC
-    PRIVATE
-}
-
-enum EventType {
-  ONLINE
-  OFFLINE
-}
-
-enum ParticipationStatus {
-    PENDING
-    APPROVED
-    REJECTED
-    BANNED
-}
+# 🚀 Planora Backend API
 
-enum InvitationStatus {
-    PENDING
-    ACCEPTED
-    DECLINED
-}
+Planora Backend is a scalable and production-ready REST API for an event management platform. It handles authentication, event management, payments, ticketing, and more.
 
-enum PaymentStatus {
-    PENDING
-    SUCCESS
-    FAILED
-    REFUNDED
-    CANCELED
-    UNPAID
-}
+---
+
+## 🌐 Live API
+https://planora-backend-1.vercel.app
+
+## 📂 Repository
+https://github.com/MOSHFIQS/planora-backend
+
+## 📹 Demo Video
+https://drive.google.com/file/d/1ZWyYftonzO9oHqp-FAlkMMUPtsi4tSbz/view
+
+---
 
-enum TicketStatus {
-    VALID
-    USED
-    CANCELED
-}
+## 🛠️ Tech Stack
 
-model Category {
-    id          String   @id @default(uuid())
-    name        String
-    description String?
-    image       String?
+### Core
+- Node.js (ESM)
+- Express.js (v5)
+- TypeScript
 
-    isDeleted Boolean   @default(false)
-    deletedAt DateTime?
-    events Event[]
+### Database
+- PostgreSQL (Neon)
+- Prisma ORM
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+### Authentication
+- Better Auth (Session + OAuth ready)
+- JWT (Access & Refresh Token)
 
-    @@index([name])
-    @@map("category")
-}
+### Services & Integrations
+- Stripe (Payments & Webhooks)
+- Cloudinary (Image Upload)
+- Nodemailer (Email Service)
+- PDFKit (Invoice Generation)
 
-model Event {
-     id          String   @id @default(cuid())
-     title       String
-     description String
-     venue       String?
-     dateTime    DateTime
+### Validation & Utilities
+- Zod (Schema Validation)
+- UUID
+- Cookie Parser
+- CORS
 
-     visibility EventVisibility
-     type       EventType       @default(ONLINE)
+---
 
-     meetingLink String?
+## 📌 Key Features
 
-     fee Float @default(0)
+### 🔐 Authentication & Security
+- JWT-based authentication (Access + Refresh Tokens)
+- Session-based authentication (Better Auth)
+- Role-based authorization (USER, ADMIN)
+- Secure cookie handling
 
-     images String[]
+### 👤 User Management
+- User roles & status
+- Soft delete system
+- Profile image support
 
-     isFeatured Boolean @default(false)
+### 📅 Event Management
+- Create / Update / Delete events
+- Online & Offline events
+- Public / Private visibility
+- Featured events
+- Category-based organization
 
-     categoryId String?
-     category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+### 🎟️ Participation & Invitations
+- Join events
+- Invitation system
+- Approval / rejection flow
+- Participation tracking
 
-     organizerId String
-     organizer   User   @relation("OrganizerEvents", fields: [organizerId], references: [id])
+### 💳 Payment System
+- Stripe integration
+- Webhook handling
+- Payment status tracking
+- Invoice generation (PDF)
 
-     createdAt DateTime @default(now())
-     updatedAt DateTime @updatedAt
+### 🎫 Ticket System
+- Unique QR code per ticket
+- Ticket validation
+- Event check-in system
 
-     participations Participation[]
-     invitations    Invitation[]
-     reviews        Review[]
-     tickets        Ticket[]
+### ⭐ Reviews
+- One review per user per event
+- Rating + comment system
 
-     @@index([organizerId])
-     @@index([visibility])
-     @@index([dateTime])
-     @@index([isFeatured])
-     @@map("event")
-}
+### 🗂️ Additional Features
+- Banner management
+- Category management
+- Email notifications
+- Image upload via Cloudinary
 
+---
 
-model Banner {
-    id String @id @default(uuid())
+## 🗄️ Database Models
 
-    title       String
-    description String?
+Main entities:
 
-    image       String
-    redirectUrl String?
-
-    position      BannerPosition
-    positionOrder Int
-
-    buttonText String?
-    altText    String?
-
-    isActive Boolean @default(true)
-
-    isDeleted Boolean   @default(false)
-    deletedAt DateTime?
-
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    @@index([position])
-    @@index([isActive])
-    @@map("banner")
-}
-
-model Invitation {
-  id String @id @default(cuid())
-
-  eventId String
-  userId  String
-
-  status InvitationStatus @default(PENDING)
-
-  createdAt DateTime @default(now())
-
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  payment Payment[]
-
-  @@unique([eventId, userId])
-  @@index([eventId])
-  @@index([status])
-  @@map("invitation")
-}
-
-
-model Participation {
-  id String @id @default(cuid())
-
-  userId  String
-  eventId String
-
-  status ParticipationStatus @default(PENDING)
-
-  createdAt DateTime @default(now())
-
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  payment Payment[]
-  ticket  Ticket?
-
-  @@unique([userId, eventId])
-  @@index([eventId])
-  @@index([status])
-  @@map("participation")
-}
-
-model Payment {
-    id            String  @id @default(uuid())
-    amount        Float
-    transactionId String  @unique @db.Uuid()
-    stripeEventId String? @unique
-
-    status PaymentStatus @default(PENDING)
-
-    userId String
-    user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-    invoiceUrl         String?
-    paymentGatewayData Json?
-
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-
-    participationId String?
-    participation   Participation? @relation(fields: [participationId], references: [id], onDelete: Cascade)
-
-    invitationId String?
-    invitation   Invitation? @relation(fields: [invitationId], references: [id], onDelete: Cascade)
-
-    @@index([participationId])
-    @@index([invitationId])
-    @@index([transactionId])
-    @@map("payment")
-}
-
-
-model Review {
-  id String @id @default(cuid())
-
-  rating  Int
-  comment String?
-
-  userId  String
-  eventId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, eventId])
-  @@index([eventId])
-  @@map("review")
-}
-
-model Ticket {
-  id String @id @default(cuid())
-
-  userId  String
-  eventId String
-
-  participationId String? @unique
-
-  qrCode String @unique
-
-  status TicketStatus @default(VALID)
-
-  checkedInAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  event         Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  participation Participation? @relation(fields: [participationId], references: [id], onDelete: Cascade)
-
-  @@index([eventId])
-  @@index([userId])
-  @@map("ticket")
-}
+- User
+- Event
+- Category
+- Participation
+- Invitation
+- Payment
+- Ticket
+- Review
+- Banner
+- Session
+- Account
+
+---
+
+## ⚙️ Environment Variables
+
+Create a `.env` file in the root:
+
+```env
+NODE_ENV=development
+PORT=5000
+
+DATABASE_URL="your_postgresql_url"
+
+# Auth
+BETTER_AUTH_SECRET=your_secret
+BETTER_AUTH_URL=http://localhost:5000
+
+ACCESS_TOKEN_SECRET=accesssecret
+REFRESH_TOKEN_SECRET=refreshsecret
+ACCESS_TOKEN_EXPIRES_IN=1d
+REFRESH_TOKEN_EXPIRES_IN=7d
+
+BETTER_AUTH_SESSION_TOKEN_EXPIRES_IN=1d
+BETTER_AUTH_SESSION_TOKEN_UPDATE_AGE=1d
+
+FRONTEND_URL=http://localhost:3000
+
+# Stripe
+STRIPE_SECRET_KEY=your_stripe_secret
+STRIPE_WEBHOOK_SECRET=your_webhook_secret
+
+# Cloudinary
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+
+# Email (SMTP)
+EMAIL_SENDER_SMTP_USER=your_email
+EMAIL_SENDER_SMTP_PASS=your_password
+EMAIL_SENDER_SMTP_HOST=smtp.gmail.com
+EMAIL_SENDER_SMTP_PORT=465
+EMAIL_SENDER_SMTP_FROM=your_email
+
+# Admin Seed
+ADMIN_EMAIL=admin@gmail.com
+ADMIN_PASSWORD=12345678

@@ -2,9 +2,11 @@ import status from "http-status";
 import AppError from "../../errorHelpers/AppError";
 import { prisma } from "../../lib/prisma";
 import { IRequestUser } from "../../interfaces/requestUser.interface";
-import { EventVisibility } from "../../../generated/prisma/enums";
+import { AuditAction, EventVisibility, NotificationType } from "../../../generated/prisma/enums";
 import { IQueryParams } from "../../interfaces/query.interface";
 import { QueryBuilder } from "../../utils/QueryBuilder";
+import { AuditLogService } from "../audit/audit.service";
+import { NotificationService } from "../notification/notification.service";
 
 const sendInvitation = async (
   user: IRequestUser,
@@ -42,12 +44,30 @@ const sendInvitation = async (
     throw new AppError(status.BAD_REQUEST, "User has already been invited");
   }
 
-  return prisma.invitation.create({
+  const invitation = await prisma.invitation.create({
     data: {
       eventId,
       userId: targetUserId,
     },
   });
+
+  await AuditLogService.logAction(
+    AuditAction.CREATE,
+    "invitation",
+    invitation.id,
+    user.userId,
+    `Sent invitation to target user`
+  );
+
+  await NotificationService.sendNotification(
+    targetUserId,
+    "New Event Invitation",
+    `You have been invited to an event!`,
+    NotificationType.INVITATION,
+    eventId
+  );
+
+  return invitation;
 };
 
 const getEventInvitations = async (user: IRequestUser, eventId: string) => {
@@ -64,26 +84,7 @@ const getEventInvitations = async (user: IRequestUser, eventId: string) => {
   });
 };
 
-//TODO
-// const getMyInvitations = async (user: IRequestUser) => {
-//   return prisma.invitation.findMany({
-//     where: { userId: user.userId },
-//     include: {
-//       event: {
-//         select: {
-//           id: true,
-//           title: true,
-//           dateTime: true,
-//           type: true,
-//           fee: true,
-//           images: true,
-//         },
-//       },
 
-
-//     },
-//   });
-// };
 
 const getMyInvitations = async (
   user: IRequestUser,

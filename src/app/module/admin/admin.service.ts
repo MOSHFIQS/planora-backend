@@ -136,19 +136,52 @@ const deleteUser = async (targetId: string, actor: IRequestUser) => {
   });
 };
 
-const updateUserRole = async (targetId: string, newRole: Role, actor: IRequestUser) => {
+const updateUserRole = async (
+  targetId: string,
+  newRole: Role,
+  actor: IRequestUser
+) => {
   if (actor.userId === targetId) {
     throw new AppError(status.BAD_REQUEST, "You cannot change your own role");
   }
 
-  const targetUser = await prisma.user.findUnique({ where: { id: targetId } });
+  const targetUser = await prisma.user.findUnique({
+    where: { id: targetId },
+  });
+
   if (!targetUser || targetUser.isDeleted) {
     throw new AppError(status.NOT_FOUND, "User not found");
   }
 
   assertHigherRole(actor.role, targetUser.role);
 
-  return prisma.user.update({ where: { id: targetId }, data: { role: newRole } });
+  // avoid unnecessary update
+  if (targetUser.role === newRole) {
+    throw new AppError(status.BAD_REQUEST, "User already has this role");
+  }
+
+  const updatedUser = await prisma.user.update({
+    where: { id: targetId },
+    data: { role: newRole },
+  });
+
+  await AuditLogService.logAction(
+    AuditAction.UPDATE,
+    "user",
+    targetId,
+    actor.userId,
+    `Role changed from ${targetUser.role} to ${newRole}`
+  );
+
+  // Notification
+  await NotificationService.sendNotification(
+    targetId,
+    "Role Updated",
+    `Your role has been updated from ${targetUser.role} to ${newRole}.`,
+    NotificationType.INFO
+  );
+
+  return updatedUser;
 };
 
 export const AdminService = {

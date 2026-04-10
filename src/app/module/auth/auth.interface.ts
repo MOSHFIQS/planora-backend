@@ -5,6 +5,7 @@ export interface IRegisterUserPayload {
      email: string;
      password: string;
      image: string;
+     role?: "USER" | "ORGANIZER";
 }
 
 export interface IChangePasswordPayload {

@@ -3,19 +3,20 @@ import AppError from "../../errorHelpers/AppError";
 import { auth } from "../../lib/auth";
 import { tokenUtils } from "../../utils/token";
 import { IRegisterUserPayload } from "./auth.interface";
-import { UserStatus } from "../../../generated/prisma/enums";
+import { AuditAction, UserStatus } from "../../../generated/prisma/enums";
 import {
      ILoginUserPayload,
-     
+
 } from "../../interfaces/requestUser.interface";
 import { prisma } from "../../lib/prisma";
 import { envVars } from "../../config/env";
 import ms from "ms";
 import { JwtPayload } from "jsonwebtoken";
 import { jwtUtils } from "../../utils/jwt";
+import { AuditLogService } from "../audit/audit.service";
 
 const registerUser = async (payload: IRegisterUserPayload) => {
-     const { name, email, password, image } = payload;
+     const { name, email, password, image, role } = payload;
 
      const data = await auth.api.signUpEmail({
           body: {
@@ -29,6 +30,17 @@ const registerUser = async (payload: IRegisterUserPayload) => {
      if (!data.user) {
           throw new AppError(status.BAD_REQUEST, "Failed to register user");
      }
+
+     //if payload.role is user then log action as user else log as organizer
+     
+
+     await AuditLogService.logAction(
+          AuditAction.REGISTER,
+          role || "USER",
+          data.user.id,
+          data.user.id,
+          "User self-registered"
+     );
 
      const accessToken = tokenUtils.getAccessToken({
           userId: data.user.id,
@@ -74,6 +86,14 @@ const loginUser = async (payload: ILoginUserPayload) => {
      if (data.user.isDeleted) {
           throw new AppError(status.NOT_FOUND, "User is deleted");
      }
+
+     await AuditLogService.logAction(
+          AuditAction.LOGIN,
+          data.user.role,
+          data.user.id,
+          data.user.id,
+          "User logged in"
+     );
 
      const accessToken = tokenUtils.getAccessToken({
           userId: data.user.id,
@@ -156,9 +176,9 @@ const getNewToken = async (refreshToken: string, sessionToken: string) => {
                token: sessionToken,
                expiresAt: new Date(
                     Date.now() +
-                         ms(
-                              envVars.REFRESH_TOKEN_EXPIRES_IN as unknown as ms.StringValue,
-                         ),
+                    ms(
+                         envVars.REFRESH_TOKEN_EXPIRES_IN as unknown as ms.StringValue,
+                    ),
                ),
                updatedAt: new Date(),
           },

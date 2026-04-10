@@ -138,42 +138,45 @@ const getAllEventsAdmin = catchAsync(async (req: Request, res: Response) => {
 });
 
 const deleteEventByAdmin = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
+     const user = req.user!;
 
-  const result = await EventService.deleteEventByAdmin(id as string);
 
-  sendResponse(res, {
-    httpStatusCode: status.OK,
-    success: true,
-    message: "Event deleted by admin",
-    data: result,
-  });
+     const { id } = req.params;
+
+     const result = await EventService.deleteEventByAdmin(id as string, user);
+
+     sendResponse(res, {
+          httpStatusCode: status.OK,
+          success: true,
+          message: "Event deleted by admin",
+          data: result,
+     });
 });
 
 const updateFeaturedStatus = catchAsync(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const { isFeatured } = req.body;
+     const { id } = req.params;
+     const { isFeatured } = req.body;
 
-  const result = await EventService.updateFeaturedStatus(id as string, isFeatured);
+     const result = await EventService.updateFeaturedStatus(id as string, isFeatured);
 
-  sendResponse(res, {
-    httpStatusCode: status.OK,
-    success: true,
-    message: "Featured status updated",
-    data: result,
-  });
+     sendResponse(res, {
+          httpStatusCode: status.OK,
+          success: true,
+          message: "Featured status updated",
+          data: result,
+     });
 });
 
 
 const getFeaturedEvents = catchAsync(async (req: Request, res: Response) => {
-  const result = await EventService.getFeaturedEvents();
+     const result = await EventService.getFeaturedEvents();
 
-  sendResponse(res, {
-    httpStatusCode: status.OK,
-    success: true,
-    message: "Featured events fetched",
-    data: result,
-  });
+     sendResponse(res, {
+          httpStatusCode: status.OK,
+          success: true,
+          message: "Featured events fetched",
+          data: result,
+     });
 });
 
 export const EventController = {

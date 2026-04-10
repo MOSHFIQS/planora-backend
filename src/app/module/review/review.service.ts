@@ -156,9 +156,7 @@ const getOrganizerEventReviewsByEventId = async (
   eventId: string
 ) => {
   try {
-    if (!user?.userId) {
-      throw new AppError(status.UNAUTHORIZED, "Unauthorized access");
-    }
+    
 
     // check event exists
     const event = await prisma.event.findUnique({

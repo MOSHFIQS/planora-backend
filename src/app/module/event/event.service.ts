@@ -32,45 +32,6 @@ export const createEvent = async (
   });
 };
 
-// const getAllEvents = async (filters: {
-//   search?: string;
-//   categoryId?: string;
-// }) => {
-//   const { search, categoryId } = filters;
-
-//   return prisma.event.findMany({
-//     where: {
-//       visibility: EventVisibility.PUBLIC,
-
-
-//       ...(search && {
-//         title: {
-//           contains: search,
-//           mode: "insensitive", 
-//         },
-//       }),
-
-
-//       ...(categoryId && {
-//         categoryId: categoryId,
-//       }),
-//     },
-
-//     select: {
-//       id: true,
-//       title: true,
-//       dateTime: true,
-//       type: true,
-//       fee: true,
-//       images: true,
-//       categoryId: true,
-//     },
-
-//     orderBy: {
-//       dateTime: "asc",
-//     },
-//   });
-// };
 
 const getAllEvents = async (query: IQueryParams) => {
   const queryBuilder = new QueryBuilder<
@@ -109,7 +70,7 @@ const getAllEvents = async (query: IQueryParams) => {
   return result;
 };
 
-const getMyEvents = async (user: IRequestUser, query: IQueryParams) => {
+const getOrganizerEvents = async (user: IRequestUser, query: IQueryParams) => {
   const queryBuilder = new QueryBuilder<
     Event,
     Prisma.EventWhereInput,
@@ -261,8 +222,8 @@ export const updateEvent = async (
   if (!event) throw new AppError(status.NOT_FOUND, "Event not found");
 
   // Authorization
-  if (event.organizerId !== user.userId && user.role !== Role.ADMIN) {
-    throw new AppError(status.FORBIDDEN, "Not authorized");
+  if (event.organizerId !== user.userId ) {
+    throw new AppError(status.FORBIDDEN, "You are not authorized to update this event");
   }
 
   // If categoryId is being updated, check it exists
@@ -407,7 +368,7 @@ export const EventService = {
   getAllEvents,
   getSingleEventPublic,
   organizersSingleEventById,
-  getMyEvents,
+  getOrganizerEvents,
   updateEvent,
   deleteEventByOrganizer,
   getAllEventsAdmin,

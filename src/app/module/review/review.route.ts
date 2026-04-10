@@ -43,7 +43,7 @@ router.get(
 // Organizer: specific event reviews
 router.get(
   "/organizer/events/:eventId",
-  checkAuth(Role.USER, Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
+  checkAuth(Role.ORGANIZER),
   ReviewController.getOrganizerEventReviewsByEventId
 );
 

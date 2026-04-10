@@ -6,22 +6,22 @@ import { EventController } from "./event.controller";
 const router = Router();
 // Public
 router.get("/", EventController.getAllEvents);
-router.get("/featured", checkAuth(Role.ADMIN), EventController.getFeaturedEvents);
-router.get("/public/:id", checkAuth(Role.USER, Role.ADMIN), EventController.getSingleEventPublic);
+router.get("/featured", checkAuth(Role.ADMIN, Role.SUPERADMIN), EventController.getFeaturedEvents);
+router.get("/public/:id", checkAuth(Role.USER, Role.ADMIN, Role.SUPERADMIN, Role.ORGANIZER), EventController.getSingleEventPublic);
 
 // Admin
-router.get("/admin/all", checkAuth(Role.ADMIN), EventController.getAllEventsAdmin);
-router.delete("/admin/:id", checkAuth(Role.ADMIN), EventController.deleteEventByAdmin);
-router.patch("/admin/feature/:id", checkAuth(Role.ADMIN), EventController.updateFeaturedStatus);
+router.get("/admin/all", checkAuth(Role.ADMIN, Role.SUPERADMIN), EventController.getAllEventsAdmin);
+router.delete("/admin/:id", checkAuth(Role.ADMIN, Role.SUPERADMIN), EventController.deleteEventByAdmin);
+router.patch("/admin/feature/:id", checkAuth(Role.ADMIN, Role.SUPERADMIN), EventController.updateFeaturedStatus);
 
 // User / Organizer
-router.post("/", checkAuth(Role.USER, Role.ADMIN), EventController.createEvent);
-router.get("/me/events", checkAuth(Role.USER, Role.ADMIN), EventController.getMyEvents);
+router.post("/", checkAuth(Role.ORGANIZER), EventController.createEvent);
+router.get("/me/events", checkAuth(Role.ORGANIZER), EventController.getOrganizerEvents);
 
 // 👇 IMPORTANT: keep dynamic routes LAST
-router.get("/:id", checkAuth(Role.USER, Role.ADMIN), EventController.organizersSingleEventById);
-router.patch("/:id", checkAuth(Role.USER, Role.ADMIN), EventController.updateEvent);
-router.delete("/:id", checkAuth(Role.USER, Role.ADMIN), EventController.deleteEventByOrganizer);
+router.get("/:id", checkAuth(Role.ORGANIZER), EventController.organizersSingleEventById);
+router.patch("/:id", checkAuth(Role.ORGANIZER), EventController.updateEvent);
+router.delete("/:id", checkAuth(Role.ORGANIZER), EventController.deleteEventByOrganizer);
 
 
 export const EventRoutes = router;

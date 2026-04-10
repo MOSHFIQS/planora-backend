@@ -10,8 +10,8 @@ router.get("/", CategoryController.getAllCategories);
 router.get("/:id", CategoryController.getSingleCategory);
 
 // ADMIN
-router.post("/", checkAuth(Role.ADMIN), CategoryController.createCategory);
-router.patch("/:id", checkAuth(Role.ADMIN), CategoryController.updateCategory);
-router.delete("/:id", checkAuth(Role.ADMIN), CategoryController.deleteCategory);
+router.post("/", checkAuth(Role.ADMIN, Role.SUPERADMIN), CategoryController.createCategory);
+router.patch("/:id", checkAuth(Role.ADMIN, Role.SUPERADMIN), CategoryController.updateCategory);
+router.delete("/:id", checkAuth(Role.ADMIN, Role.SUPERADMIN), CategoryController.deleteCategory);
 
 export const CategoryRoutes = router;

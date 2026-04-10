@@ -70,14 +70,14 @@ export const organizersSingleEventById = catchAsync(async (req: Request, res: Re
      });
 });
 
-const getMyEvents = catchAsync(async (req: Request, res: Response) => {
+const getOrganizerEvents = catchAsync(async (req: Request, res: Response) => {
      const query = req.query;
      const user = req.user;
      if (!user) {
           throw new AppError(status.UNAUTHORIZED, "Unauthorized");
      }
 
-     const result = await EventService.getMyEvents(user, query as IQueryParams);
+     const result = await EventService.getOrganizerEvents(user, query as IQueryParams);
 
      sendResponse(res, {
           httpStatusCode: status.OK,
@@ -181,7 +181,7 @@ export const EventController = {
      getAllEvents,
      getSingleEventPublic,
      organizersSingleEventById,
-     getMyEvents,
+     getOrganizerEvents,
      updateEvent,
      deleteEventByOrganizer,
      getAllEventsAdmin,

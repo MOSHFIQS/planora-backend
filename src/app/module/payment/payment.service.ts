@@ -57,10 +57,7 @@ const initiatePayment = async (
      },
 ) => {
 
-     //admin cant join events
-     if (user.role === "ADMIN") {
-          throw new AppError(status.FORBIDDEN, "Admins cannot join events");
-     }
+     
 
      if (!payload.eventId && !payload.invitationId) {
           throw new AppError(status.BAD_REQUEST, "Invalid payment target");
@@ -689,34 +686,7 @@ const getOrganizerPayments = async (
      return result;
 };
 
-// 🔹 3. Admin → all payments
-// const getAllPayments = async (user: IRequestUser) => {
-//      // Only admin allowed
-//      if (user.role !== "ADMIN") {
-//           throw new Error("Unauthorized access");
-//      }
 
-//      const payments = await prisma.payment.findMany({
-//           include: {
-//                user: true,
-//                participation: {
-//                     include: {
-//                          event: true,
-//                     },
-//                },
-//                invitation: {
-//                     include: {
-//                          event: true,
-//                     },
-//                },
-//           },
-//           orderBy: {
-//                createdAt: "desc",
-//           },
-//      });
-
-//      return payments;
-// };
 
 
 const getAllPayments = async (

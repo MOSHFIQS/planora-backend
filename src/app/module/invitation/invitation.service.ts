@@ -18,7 +18,7 @@ const sendInvitation = async (
     throw new AppError(status.BAD_REQUEST, "Invitations only for private events");
   }
 
-  if (event.organizerId !== user.userId && user.role !== "ADMIN") {
+  if (event.organizerId !== user.userId) {
     throw new AppError(status.FORBIDDEN, "Not authorized");
   }
 
@@ -54,7 +54,7 @@ const getEventInvitations = async (user: IRequestUser, eventId: string) => {
   const event = await prisma.event.findUnique({ where: { id: eventId } });
   if (!event) throw new AppError(status.NOT_FOUND, "Event not found");
 
-  if (event.organizerId !== user.userId && user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+  if (event.organizerId !== user.userId) {
     throw new AppError(status.FORBIDDEN, "Not authorized");
   }
 

@@ -24,9 +24,22 @@ const getUserStats = catchAsync(async (req: Request, res: Response) => {
   sendResponse(res, { httpStatusCode: status.OK, success: true, message: "User stats fetched", data: result });
 });
 
+const getPublicStats = catchAsync(async (req: Request, res: Response) => {
+  
+  const result = await StatService.getPublicStats();
+
+  sendResponse(res, {
+    httpStatusCode: status.OK,
+    success: true,
+    message: "User stats fetched",
+    data: result,
+  });
+});
+
 export const StatController = {
   getSuperAdminStats,
   getAdminStats,
   getOrganizerStats,
   getUserStats,
+  getPublicStats,
 };

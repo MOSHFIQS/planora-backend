@@ -9,13 +9,13 @@ const router = Router();
 // Organizer/Admin
 router.post(
   "/send",
-  checkAuth(Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
+  checkAuth(Role.ORGANIZER),
   InvitationController.sendInvitation
 );
 
 router.get(
   "/event/:eventId",
-  checkAuth(Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
+  checkAuth(Role.ORGANIZER),
   InvitationController.getEventInvitations
 );
 

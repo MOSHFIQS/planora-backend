@@ -15,18 +15,18 @@ router.get(
 // Organizer/Admin routes
 router.get(
      "/event/:eventId",
-     checkAuth(Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
+     checkAuth(Role.ORGANIZER),
      ParticipationController.getEventParticipants,
 );
 router.get(
      "/my-all-participants",
-     checkAuth(Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
+     checkAuth(Role.ORGANIZER),
      ParticipationController.getMyAllEventParticipants
 );
 
 router.patch(
      "/:id/status",
-     checkAuth(Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
+     checkAuth(Role.ORGANIZER),
      ParticipationController.updateStatus,
 );
 

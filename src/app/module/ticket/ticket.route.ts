@@ -12,10 +12,10 @@ router.get(
   TicketController.getMyTickets
 );
 
-// Organizer/Admin actions
+// Organizer
 router.get(
   "/event/:eventId",
-  checkAuth(Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
+  checkAuth(Role.ORGANIZER),
   TicketController.getEventTickets
 );
 

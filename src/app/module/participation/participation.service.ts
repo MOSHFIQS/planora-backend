@@ -244,10 +244,8 @@ const getEventParticipants = async (user: IRequestUser, eventId: string) => {
 
      // Authorization check
      const isOrganizer = event.organizerId === user.userId;
-     const isAdmin = user.role === "ADMIN";
-     const isSuperAdmin = user.role === "SUPERADMIN";
 
-     if (!isOrganizer && !isAdmin && !isSuperAdmin) {
+     if (!isOrganizer) {
           throw new AppError(
                status.FORBIDDEN,
                "You are not allowed to view participants",
@@ -378,9 +376,7 @@ const updateStatus = async (
 
      // Only organizer or admin
      if (
-          participation.event.organizerId !== user.userId &&
-          user.role !== "ADMIN" &&
-          user.role !== "SUPERADMIN"
+          participation.event.organizerId !== user.userId
      ) {
           throw new AppError(status.FORBIDDEN, "Not authorized");
      }

@@ -14,6 +14,7 @@ import { BannerRoutes } from "../module/banner/banner.route";
 import { PublicRoutes } from "../module/public/public.route";
 import { TicketRoutes } from "../module/ticket/ticket.route";
 import { AuditRoutes } from "../module/audit/audit.route";
+import { NotificationRoutes } from "../module/notification/notification.route";
 
 const router = Router();
 
@@ -32,5 +33,6 @@ router.use("/banner", BannerRoutes);
 router.use("/public", PublicRoutes);
 router.use("/ticket", TicketRoutes);
 router.use("/audit", AuditRoutes);
+router.use("/notification", NotificationRoutes);
 
 export const IndexRoutes = router;

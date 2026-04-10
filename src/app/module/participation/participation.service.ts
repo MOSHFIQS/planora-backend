@@ -109,9 +109,7 @@ export const getMyEvents = async (
      user: IRequestUser,
      query: IQueryParams
 ) => {
-     if (!user?.userId) {
-          throw new AppError(status.UNAUTHORIZED, "Unauthorized");
-     }
+
 
      // 🔹 QB instance for approved
      const approvedQB = new QueryBuilder(
@@ -247,8 +245,9 @@ const getEventParticipants = async (user: IRequestUser, eventId: string) => {
      // Authorization check
      const isOrganizer = event.organizerId === user.userId;
      const isAdmin = user.role === "ADMIN";
+     const isSuperAdmin = user.role === "SUPERADMIN";
 
-     if (!isOrganizer && !isAdmin) {
+     if (!isOrganizer && !isAdmin && !isSuperAdmin) {
           throw new AppError(
                status.FORBIDDEN,
                "You are not allowed to view participants",
@@ -268,11 +267,6 @@ const getEventParticipants = async (user: IRequestUser, eventId: string) => {
 
 
 export const getMyAllEventParticipants = async (user: IRequestUser) => {
-     if (!user?.userId) {
-          throw new AppError(status.UNAUTHORIZED, "Unauthorized");
-     }
-
-
 
      const events: EventData[] = await prisma.event.findMany({
           where: { organizerId: user.userId },
@@ -385,7 +379,8 @@ const updateStatus = async (
      // Only organizer or admin
      if (
           participation.event.organizerId !== user.userId &&
-          user.role !== "ADMIN"
+          user.role !== "ADMIN" &&
+          user.role !== "SUPERADMIN"
      ) {
           throw new AppError(status.FORBIDDEN, "Not authorized");
      }

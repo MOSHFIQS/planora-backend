@@ -8,25 +8,25 @@ const router = Router();
 // User routes
 router.get(
      "/my-events",
-     checkAuth(Role.USER, Role.ADMIN),
+     checkAuth(Role.USER, Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
      ParticipationController.getMyEvents,
 );
 
 // Organizer/Admin routes
 router.get(
      "/event/:eventId",
-     checkAuth(Role.USER, Role.ADMIN),
+     checkAuth(Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
      ParticipationController.getEventParticipants,
 );
 router.get(
      "/my-all-participants",
-     checkAuth(Role.USER, Role.ADMIN),
+     checkAuth(Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
      ParticipationController.getMyAllEventParticipants
 );
 
 router.patch(
      "/:id/status",
-     checkAuth(Role.USER, Role.ADMIN),
+     checkAuth(Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
      ParticipationController.updateStatus,
 );
 

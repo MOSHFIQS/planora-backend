@@ -3,6 +3,7 @@ import AppError from "../../errorHelpers/AppError";
 import status from "http-status";
 import { IQueryParams } from "../../interfaces/query.interface";
 import { QueryBuilder } from "../../utils/QueryBuilder";
+import { IRequestUser } from "../../interfaces/requestUser.interface";
 
 // Get all tickets of a user
 // const getUserTickets = async (userId: string) => {
@@ -14,12 +15,9 @@ import { QueryBuilder } from "../../utils/QueryBuilder";
 // };
 
 const getUserTickets = async (
-  userId: string,
+  user: IRequestUser,
   query: IQueryParams
 ) => {
-  if (!userId) {
-    throw new AppError(status.BAD_REQUEST, "UserId is required");
-  }
 
   const queryBuilder = new QueryBuilder(
     prisma.ticket,
@@ -28,7 +26,7 @@ const getUserTickets = async (
 
   const result = await queryBuilder
     .where({
-      userId,
+      userId: user.userId,
     })
     .include({
       event: true,

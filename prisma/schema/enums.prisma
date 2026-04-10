@@ -1,6 +1,8 @@
 enum Role {
     USER
+    ORGANIZER
     ADMIN
+    SUPERADMIN
 }
 
 enum UserStatus {
@@ -14,8 +16,8 @@ enum EventVisibility {
 }
 
 enum EventType {
-  ONLINE
-  OFFLINE
+    ONLINE
+    OFFLINE
 }
 
 enum ParticipationStatus {
@@ -50,4 +52,23 @@ enum BannerPosition {
     MAIN
     SECONDARY
     THIRD
+}
+
+enum NotificationType {
+    INFO
+    WARNING
+    SUCCESS
+    ERROR
+    INVITATION
+    SYSTEM_ALERT
+}
+
+enum AuditAction {
+    CREATE
+    UPDATE
+    DELETE
+    SUSPEND
+    LOGIN
+    REGISTER
+    PAYMENT
 }

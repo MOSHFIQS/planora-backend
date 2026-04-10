@@ -54,7 +54,7 @@ const getEventInvitations = async (user: IRequestUser, eventId: string) => {
   const event = await prisma.event.findUnique({ where: { id: eventId } });
   if (!event) throw new AppError(status.NOT_FOUND, "Event not found");
 
-  if (event.organizerId !== user.userId && user.role !== "ADMIN") {
+  if (event.organizerId !== user.userId && user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
     throw new AppError(status.FORBIDDEN, "Not authorized");
   }
 
@@ -89,9 +89,7 @@ const getMyInvitations = async (
   user: IRequestUser,
   query: IQueryParams
 ) => {
-  if (!user?.userId) {
-    throw new AppError(status.UNAUTHORIZED, "Unauthorized");
-  }
+
 
   const queryBuilder = new QueryBuilder(
     prisma.invitation,
@@ -123,9 +121,7 @@ const getMyInvitations = async (
 
 
 const cancelInvitation = async (user: IRequestUser, invitationId: string) => {
-  if (!user?.userId) {
-    throw new AppError(status.UNAUTHORIZED, "Unauthorized");
-  }
+
 
   const invitation = await prisma.invitation.findUnique({
     where: { id: invitationId },
@@ -135,7 +131,7 @@ const cancelInvitation = async (user: IRequestUser, invitationId: string) => {
     throw new AppError(status.NOT_FOUND, "Invitation not found");
   }
 
-  if (invitation.userId !== user.userId) {
+  if (invitation.userId !== user.userId && user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
     throw new AppError(status.FORBIDDEN, "You are not allowed to cancel this invitation");
   }
 

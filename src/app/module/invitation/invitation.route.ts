@@ -9,19 +9,19 @@ const router = Router();
 // Organizer/Admin
 router.post(
   "/send",
-  checkAuth(Role.USER, Role.ADMIN),
+  checkAuth(Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
   InvitationController.sendInvitation
 );
 
 router.get(
   "/event/:eventId",
-  checkAuth(Role.USER, Role.ADMIN),
+  checkAuth(Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
   InvitationController.getEventInvitations
 );
 
 router.delete(
   "/:id",
-  checkAuth(Role.USER, Role.ADMIN),
+  checkAuth(Role.USER, Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
   InvitationController.cancelInvitation
 );
 
@@ -29,7 +29,7 @@ router.delete(
 // Invited user
 router.get(
   "/my",
-  checkAuth(Role.USER, Role.ADMIN),
+  checkAuth(Role.USER, Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
   InvitationController.getMyInvitations
 );
 

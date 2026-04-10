@@ -1,265 +1,154 @@
 import status from "http-status";
 import AppError from "../../errorHelpers/AppError";
 import { prisma } from "../../lib/prisma";
-import { InvitationStatus, ParticipationStatus, PaymentStatus, Role, UserStatus } from "../../../generated/prisma/enums";
+import {
+  AuditAction,
+  InvitationStatus,
+  NotificationType,
+  ParticipationStatus,
+  PaymentStatus,
+  Role,
+  UserStatus,
+} from "../../../generated/prisma/enums";
 import { IRequestUser } from "../../interfaces/requestUser.interface";
 import { QueryBuilder } from "../../utils/QueryBuilder";
 import { IQueryParams } from "../../interfaces/query.interface";
+import { auth } from "../../lib/auth";
+import { AuditLogService } from "../audit/audit.service";
+import { NotificationService } from "../notification/notification.service";
 
-// get all users
-// const getAllUsers = async () => {
-//   return prisma.user.findMany({
-//     where: {
-//       isDeleted: false,
-//       role: "USER",
-//     },
-//     orderBy: { createdAt: "desc" },
-//   });
-// };
+const roleHierarchy: Record<Role, number> = {
+  [Role.SUPERADMIN]: 4,
+  [Role.ADMIN]: 3,
+  [Role.ORGANIZER]: 2,
+  [Role.USER]: 1,
+};
 
-// const getAllAdmins = async () => {
-//   return prisma.user.findMany({
-//     where: {
-//       isDeleted: false,
-//       role: "ADMIN",
-//     },
-//     orderBy: { createdAt: "desc" },
-//   });
-// };
-
-
-const getAllUsers = async (
-  user: IRequestUser,
-  query: IQueryParams
-) => {
-  // Admin only
-  if (user.role !== "ADMIN") {
-    throw new AppError(status.UNAUTHORIZED, "Unauthorized access");
+const assertHigherRole = (actorRole: Role, targetRole: Role) => {
+  if (roleHierarchy[actorRole] <= roleHierarchy[targetRole]) {
+    throw new AppError(
+      status.FORBIDDEN,
+      "You do not have permission to perform this action on this user"
+    );
   }
+};
 
-  const queryBuilder = new QueryBuilder(
-    prisma.user,
-    query
-  );
+// ── Queries ──────────────────────────────────────────────────────────────────
 
-  const result = await queryBuilder
-    .where({
-      isDeleted: false,
-      role: "USER",
-    })
+const getAllUsers = async (user: IRequestUser, query: IQueryParams) => {
+  const queryBuilder = new QueryBuilder(prisma.user, query);
+  return queryBuilder
+    .where({ isDeleted: false, role: Role.USER })
     .sort()
     .paginate()
     .execute();
-
-  return result;
 };
 
-const getAllAdmins = async (
-  user: IRequestUser,
-  query: IQueryParams
-) => {
-  // Admin only
-  if (user.role !== "ADMIN") {
-    throw new AppError(status.UNAUTHORIZED, "Unauthorized access");
-  }
-
-  const queryBuilder = new QueryBuilder(
-    prisma.user,
-    query
-  );
-
-  const result = await queryBuilder
-    .where({
-      isDeleted: false,
-      role: "ADMIN",
-    })
+const getAllAdmins = async (user: IRequestUser, query: IQueryParams) => {
+  const queryBuilder = new QueryBuilder(prisma.user, query);
+  return queryBuilder
+    .where({ isDeleted: false, role: Role.ADMIN })
     .sort()
     .paginate()
     .execute();
-
-  return result;
 };
 
-// get single user
 const getSingleUser = async (id: string) => {
-  const user = await prisma.user.findUnique({
-    where: { id },
-  });
-
+  const user = await prisma.user.findUnique({ where: { id } });
   if (!user || user.isDeleted) {
     throw new AppError(status.NOT_FOUND, "User not found");
   }
-
   return user;
 };
 
-// update user status (ACTIVE / SUSPENDED)
-const updateUserStatus = async (id: string, statusValue: UserStatus, user: IRequestUser) => {
-  if (user.role !== "ADMIN") {
-    throw new AppError(status.UNAUTHORIZED, "You are not authorized");
-  }
-  if (user.userId === id) {
-    throw new AppError(status.BAD_REQUEST, "You cannot suspended yourself");
-  }
-  return prisma.user.update({
-    where: { id },
-    data: { status: statusValue },
+
+
+// ── Mutations ─────────────────────────────────────────────────────────────────
+
+const createAdmin = async (payload: { name: string; email: string; password: string }) => {
+  const data = await auth.api.signUpEmail({
+    body: { ...payload, role: Role.ADMIN },
   });
+  if (!data?.user) throw new AppError(status.BAD_REQUEST, "Failed to create admin");
+  return data.user;
 };
 
-// soft delete user
-const deleteUser = async (id: string, user: IRequestUser) => {
-
-  if (user.role !== "ADMIN") {
-    throw new AppError(status.UNAUTHORIZED, "You are not authorized");
-  }
-
-
-  if (user.userId === id) {
-    throw new AppError(status.BAD_REQUEST, "You cannot delete yourself");
-  }
-
-  //  Delete (soft delete)
-  return prisma.user.update({
-    where: { id },
-    data: {
-      isDeleted: true,
-      deletedAt: new Date(),
-    },
-  });
-};
-
-
-const updateUserRole = async (
-  id: string,
-  role: Role,
-  user: IRequestUser
+/**
+ * Single, unified status-update function.
+ * - SUPERADMIN can change ADMIN or USER status.
+ * - ADMIN can only change USER status.
+ * Role-hierarchy check enforces this automatically.
+ */
+const updateUserStatus = async (
+  targetId: string,
+  newStatus: UserStatus,
+  actor: IRequestUser
 ) => {
-  // only admin can change role
-  if (user.role !== "ADMIN") {
-    throw new AppError(status.UNAUTHORIZED, "You are not authorized");
+  if (actor.userId === targetId) {
+    throw new AppError(status.BAD_REQUEST, "You cannot change your own status");
   }
 
-  // prevent self role change (very important)
-  if (user.userId === id) {
-    throw new AppError(status.BAD_REQUEST, "You cannot change your own role");
-  }
-
-  // check user exists
-  const targetUser = await prisma.user.findUnique({
-    where: { id },
-  });
-
+  const targetUser = await prisma.user.findUnique({ where: { id: targetId } });
   if (!targetUser || targetUser.isDeleted) {
     throw new AppError(status.NOT_FOUND, "User not found");
   }
 
+  assertHigherRole(actor.role, targetUser.role);
+
+  const updatedUser = await prisma.user.update({
+    where: { id: targetId },
+    data: { status: newStatus },
+  });
+
+  await AuditLogService.logAction(
+    AuditAction.SUSPEND,
+    "user",
+    targetId,
+    actor.userId,
+    `Status changed to ${newStatus}`
+  );
+
+  await NotificationService.sendNotification(
+    targetId,
+    "Account Status Update",
+    `Your account status has been changed to ${newStatus}.`,
+    newStatus === UserStatus.SUSPENDED ? NotificationType.WARNING : NotificationType.INFO
+  );
+
+  return updatedUser;
+};
+
+const deleteUser = async (targetId: string, actor: IRequestUser) => {
+  if (actor.userId === targetId) {
+    throw new AppError(status.BAD_REQUEST, "You cannot delete yourself");
+  }
+
+  const targetUser = await prisma.user.findUnique({ where: { id: targetId } });
+  if (!targetUser || targetUser.isDeleted) {
+    throw new AppError(status.NOT_FOUND, "User not found");
+  }
+
+  assertHigherRole(actor.role, targetUser.role);
+
   return prisma.user.update({
-    where: { id },
-    data: { role },
+    where: { id: targetId },
+    data: { isDeleted: true, deletedAt: new Date() },
   });
 };
 
+const updateUserRole = async (targetId: string, newRole: Role, actor: IRequestUser) => {
+  if (actor.userId === targetId) {
+    throw new AppError(status.BAD_REQUEST, "You cannot change your own role");
+  }
 
+  const targetUser = await prisma.user.findUnique({ where: { id: targetId } });
+  if (!targetUser || targetUser.isDeleted) {
+    throw new AppError(status.NOT_FOUND, "User not found");
+  }
 
-const getAdminStats = async () => {
-  // ===== USERS =====
-  const totalUsers = await prisma.user.count();
+  assertHigherRole(actor.role, targetUser.role);
 
-  const totalAdmins = await prisma.user.count({
-    where: { role: "ADMIN" },
-  });
-
-  const totalNormalUsers = await prisma.user.count({
-    where: { role: "USER" },
-  });
-
-  const activeUsers = await prisma.user.count({
-    where: {
-      status: "ACTIVE",
-      role: "USER",
-    },
-  });
-
-  const suspendedUsers = await prisma.user.count({
-    where: {
-      status: "SUSPENDED",
-      role: "USER",
-    },
-  });
-
-  // ===== EVENTS =====
-  const totalEvents = await prisma.event.count();
-
-  const upcomingEvents = await prisma.event.count({
-    where: {
-      dateTime: { gt: new Date() },
-    },
-  });
-
-  // ===== PARTICIPATION =====
-  const totalParticipants = await prisma.participation.count();
-
-  const approvedParticipants = await prisma.participation.count({
-    where: { status: ParticipationStatus.APPROVED },
-  });
-
-  // ===== INVITATIONS =====
-  const totalInvites = await prisma.invitation.count();
-
-  const acceptedInvites = await prisma.invitation.count({
-    where: { status: InvitationStatus.ACCEPTED },
-  });
-
-  // ===== PAYMENTS =====
-  const totalPayments = await prisma.payment.count();
-
-  const successfulPayments = await prisma.payment.count({
-    where: { status: PaymentStatus.SUCCESS },
-  });
-
-  const totalRevenue = await prisma.payment.aggregate({
-    where: { status: PaymentStatus.SUCCESS },
-    _sum: { amount: true },
-  });
-
-  // ===== REVIEWS =====
-  const totalReviews = await prisma.review.count();
-
-  return {
-    users: {
-      totalUsers,
-      activeUsers,
-      totalAdmins,
-      totalNormalUsers,
-      suspendedUsers
-    },
-
-    events: {
-      totalEvents,
-      upcomingEvents,
-    },
-
-    participation: {
-      totalParticipants,
-      approvedParticipants,
-    },
-
-    invitations: {
-      totalInvites,
-      acceptedInvites,
-    },
-
-    payments: {
-      totalPayments,
-      successfulPayments,
-      totalRevenue: totalRevenue._sum.amount || 0,
-    },
-
-    reviews: {
-      totalReviews,
-    },
-  };
+  return prisma.user.update({ where: { id: targetId }, data: { role: newRole } });
 };
 
 export const AdminService = {
@@ -269,5 +158,5 @@ export const AdminService = {
   updateUserStatus,
   deleteUser,
   updateUserRole,
-  getAdminStats,
+  createAdmin,
 };

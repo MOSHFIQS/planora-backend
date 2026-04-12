@@ -24,6 +24,7 @@ const registerUser = async (payload: IRegisterUserPayload) => {
                email,
                password,
                image,
+               role,
           },
      });
 

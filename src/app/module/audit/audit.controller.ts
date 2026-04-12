@@ -3,32 +3,19 @@ import status from "http-status";
 import { catchAsync } from "../../shared/catchAsync";
 import { sendResponse } from "../../shared/sendResponse";
 import { prisma } from "../../lib/prisma";
+import { AuditService } from "./audit.service";
+import { IQueryParams } from "../../interfaces/query.interface";
 
 const getAllLogs = catchAsync(async (req: Request, res: Response) => {
-  const logs = await prisma.auditLog.findMany({
-    orderBy: { createdAt: "desc" },
-    include: {
-      actor: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-        },
-      },
-    },
-  });
+  const query = req.query;
+  console.log(query);
+  const result = await AuditService.getAllLogs(query as IQueryParams);
 
   sendResponse(res, {
     httpStatusCode: status.OK,
     success: true,
     message: "Audit logs fetched successfully",
-    data: {
-      meta: {
-        total: logs.length,
-      },
-      data: logs,
-    },
+    data: result,
   });
 });
 

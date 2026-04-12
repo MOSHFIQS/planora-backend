@@ -10,14 +10,21 @@ import { IQueryParams } from "../../interfaces/query.interface";
 
 
 
-// export const getMyEvents = async (user: IRequestUser) => {
 
-//      if (!user?.userId) {
-//           throw new AppError(status.UNAUTHORIZED, "Unauthorized");
-//      }
+// export const getMyEvents = async (
+//      user: IRequestUser,
+//      query: IQueryParams
+// ) => {
 
-//      const approvedEvents = await prisma.participation.findMany({
-//           where: {
+
+//      // 🔹 QB instance for approved
+//      const approvedQB = new QueryBuilder(
+//           prisma.participation,
+//           query,{
+//                searchableFields: ['event.description','event.title'],
+//           }
+//      )
+//           .where({
 //                userId: user.userId,
 //                OR: [
 //                     { status: ParticipationStatus.APPROVED },
@@ -29,8 +36,8 @@ import { IQueryParams } from "../../interfaces/query.interface";
 //                          },
 //                     },
 //                ],
-//           },
-//           include: {
+//           })
+//           .include({
 //                event: {
 //                     select: {
 //                          id: true,
@@ -69,11 +76,19 @@ import { IQueryParams } from "../../interfaces/query.interface";
 //                          transactionId: true,
 //                     },
 //                },
-//           },
-//      });
+//           })
+//           .search()
+//           .sort()
+//           .paginate();
 
-//      const pendingEvents = await prisma.participation.findMany({
-//           where: {
+//      const approvedResult = await approvedQB.execute();
+
+//      // 🔹 QB instance for pending
+//      const pendingQB = new QueryBuilder(
+//           prisma.participation,
+//           query
+//      )
+//           .where({
 //                userId: user.userId,
 //                status: ParticipationStatus.PENDING,
 //                payment: {
@@ -81,8 +96,8 @@ import { IQueryParams } from "../../interfaces/query.interface";
 //                          status: PaymentStatus.SUCCESS,
 //                     },
 //                },
-//           },
-//           include: {
+//           })
+//           .include({
 //                event: {
 //                     select: {
 //                          id: true,
@@ -94,38 +109,63 @@ import { IQueryParams } from "../../interfaces/query.interface";
 //                          images: true,
 //                     },
 //                },
-//           },
-//      });
+//           })
+//           .sort()
+//           .paginate();
 
+//      const pendingResult = await pendingQB.execute();
 
-//      const result = [...approvedEvents, ...pendingEvents].sort(
-//           (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+//      // 🔹 Merge results
+//      const mergedData = [
+//           ...approvedResult.data,
+//           ...pendingResult.data,
+//      ].sort(
+//           (a: any, b: any) =>
+//                new Date(b.createdAt).getTime() -
+//                new Date(a.createdAt).getTime()
 //      );
 
-//      return result;
+//      //  Meta merge (approximation)
+//      const total = approvedResult.meta.total + pendingResult.meta.total;
+
+//      const limit = approvedResult.meta.limit;
+//      const page = approvedResult.meta.page;
+
+//      return {
+//           data: mergedData,
+//           meta: {
+//                page,
+//                limit,
+//                total,
+//                totalPages: Math.ceil(total / limit),
+//           },
+//      };
 // };
 
-export const getMyEvents = async (
-     user: IRequestUser,
-     query: IQueryParams
-) => {
+const getMyEvents = async (user: IRequestUser, query: IQueryParams) => {
+     const qb = new QueryBuilder(prisma.participation, query, {
+          searchableFields: ['event.title', 'event.description'],
+     });
 
-
-     // 🔹 QB instance for approved
-     const approvedQB = new QueryBuilder(
-          prisma.participation,
-          query
-     )
+     const result = await qb
           .where({
                userId: user.userId,
                OR: [
                     { status: ParticipationStatus.APPROVED },
                     {
                          payment: {
-                              some: {
-                                   status: PaymentStatus.SUCCESS,
-                              },
+                              some: { status: PaymentStatus.SUCCESS },
                          },
+                    },
+                    {
+                         AND: [
+                              { status: ParticipationStatus.PENDING },
+                              {
+                                   payment: {
+                                        none: { status: PaymentStatus.SUCCESS },
+                                   },
+                              },
+                         ],
                     },
                ],
           })
@@ -142,18 +182,11 @@ export const getMyEvents = async (
                          images: true,
                          meetingLink: true,
                          organizer: {
-                              select: {
-                                   id: true,
-                                   name: true,
-                              },
+                              select: { id: true, name: true },
                          },
                          reviews: {
-                              where: {
-                                   userId: user.userId,
-                              },
-                              select: {
-                                   id: true,
-                              },
+                              where: { userId: user.userId },
+                              select: { id: true },
                          },
                     },
                },
@@ -169,68 +202,12 @@ export const getMyEvents = async (
                     },
                },
           })
+          .search()
           .sort()
-          .paginate();
+          .paginate()
+          .execute();
 
-     const approvedResult = await approvedQB.execute();
-
-     // 🔹 QB instance for pending
-     const pendingQB = new QueryBuilder(
-          prisma.participation,
-          query
-     )
-          .where({
-               userId: user.userId,
-               status: ParticipationStatus.PENDING,
-               payment: {
-                    none: {
-                         status: PaymentStatus.SUCCESS,
-                    },
-               },
-          })
-          .include({
-               event: {
-                    select: {
-                         id: true,
-                         title: true,
-                         dateTime: true,
-                         type: true,
-                         venue: true,
-                         fee: true,
-                         images: true,
-                    },
-               },
-          })
-          .sort()
-          .paginate();
-
-     const pendingResult = await pendingQB.execute();
-
-     // 🔹 Merge results
-     const mergedData = [
-          ...approvedResult.data,
-          ...pendingResult.data,
-     ].sort(
-          (a: any, b: any) =>
-               new Date(b.createdAt).getTime() -
-               new Date(a.createdAt).getTime()
-     );
-
-     //  Meta merge (approximation)
-     const total = approvedResult.meta.total + pendingResult.meta.total;
-
-     const limit = approvedResult.meta.limit;
-     const page = approvedResult.meta.page;
-
-     return {
-          data: mergedData,
-          meta: {
-               page,
-               limit,
-               total,
-               totalPages: Math.ceil(total / limit),
-          },
-     };
+     return result;
 };
 
 const getEventParticipants = async (user: IRequestUser, eventId: string) => {

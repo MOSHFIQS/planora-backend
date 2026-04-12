@@ -38,7 +38,11 @@ const assertHigherRole = (actorRole: Role, targetRole: Role) => {
 const getAllUsers = async (user: IRequestUser, query: IQueryParams) => {
   const queryBuilder = new QueryBuilder(prisma.user, query);
   return queryBuilder
-    .where({ isDeleted: false, role: Role.USER })
+    .where({
+      role: {
+        in: [Role.USER, Role.ORGANIZER],
+      },
+    })
     .sort()
     .paginate()
     .execute();
@@ -47,7 +51,7 @@ const getAllUsers = async (user: IRequestUser, query: IQueryParams) => {
 const getAllAdmins = async (user: IRequestUser, query: IQueryParams) => {
   const queryBuilder = new QueryBuilder(prisma.user, query);
   return queryBuilder
-    .where({ isDeleted: false, role: Role.ADMIN })
+    .where({ role: Role.ADMIN })
     .sort()
     .paginate()
     .execute();
@@ -65,13 +69,29 @@ const getSingleUser = async (id: string) => {
 
 // ── Mutations ─────────────────────────────────────────────────────────────────
 
-const createAdmin = async (payload: { name: string; email: string; password: string }) => {
+type AllowedAdminRole = "ADMIN" | "SUPERADMIN";
+
+const createAdmin = async (payload: {
+  name: string;
+  email: string;
+  password: string;
+  role: AllowedAdminRole;
+}) => {
+  if (!["ADMIN", "SUPERADMIN"].includes(payload.role)) {
+    throw new AppError(status.BAD_REQUEST, "Invalid role");
+  }
+
   const data = await auth.api.signUpEmail({
-    body: { ...payload, role: Role.ADMIN },
+    body: payload,
   });
-  if (!data?.user) throw new AppError(status.BAD_REQUEST, "Failed to create admin");
+
+  if (!data?.user) {
+    throw new AppError(status.BAD_REQUEST, "Failed to create user");
+  }
+
   return data.user;
 };
+
 
 /**
  * Single, unified status-update function.
@@ -142,7 +162,7 @@ const updateUserRole = async (
   actor: IRequestUser
 ) => {
   if (actor.userId === targetId) {
-    throw new AppError(status.BAD_REQUEST, "You cannot change your own role");
+    throw new AppError(status.BAD_REQUEST, "You cannot change your own role")
   }
 
   const targetUser = await prisma.user.findUnique({
@@ -155,7 +175,6 @@ const updateUserRole = async (
 
   assertHigherRole(actor.role, targetUser.role);
 
-  // avoid unnecessary update
   if (targetUser.role === newRole) {
     throw new AppError(status.BAD_REQUEST, "User already has this role");
   }

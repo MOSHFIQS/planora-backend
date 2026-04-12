@@ -36,11 +36,11 @@ const updateUserRole = catchAsync(async (req: Request, res: Response) => {
 });
 
 
-
 const createAdmin = catchAsync(async (req: Request, res: Response) => {
   const result = await AdminService.createAdmin(req.body);
   sendResponse(res, { httpStatusCode: status.CREATED, success: true, message: "Admin created", data: result });
 });
+
 
 export const AdminController = {
   getAllUsers,

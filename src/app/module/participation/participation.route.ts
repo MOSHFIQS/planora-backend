@@ -12,7 +12,7 @@ router.get(
      ParticipationController.getMyEvents,
 );
 
-// Organizer/Admin routes
+// Organizer
 router.get(
      "/event/:eventId",
      checkAuth(Role.ORGANIZER),

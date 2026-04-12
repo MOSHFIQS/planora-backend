@@ -431,8 +431,8 @@ var loadEnvVariables = () => {
     "EMAIL_SENDER_SMTP_HOST",
     "EMAIL_SENDER_SMTP_PORT",
     "EMAIL_SENDER_SMTP_FROM",
-    "ADMIN_EMAIL",
-    "ADMIN_PASSWORD"
+    "SUPER_ADMIN_EMAIL",
+    "SUPER_ADMIN_PASSWORD"
   ];
   requireEnvVariable.forEach((variable) => {
     if (!process.env[variable]) {
@@ -471,8 +471,8 @@ var loadEnvVariables = () => {
       SMTP_PORT: process.env.EMAIL_SENDER_SMTP_PORT,
       SMTP_FROM: process.env.EMAIL_SENDER_SMTP_FROM
     },
-    ADMIN_EMAIL: process.env.ADMIN_EMAIL,
-    ADMIN_PASSWORD: process.env.ADMIN_PASSWORD
+    SUPER_ADMIN_EMAIL: process.env.SUPER_ADMIN_EMAIL,
+    SUPER_ADMIN_PASSWORD: process.env.SUPER_ADMIN_PASSWORD
   };
 };
 var envVars = loadEnvVariables();
@@ -748,7 +748,7 @@ var notFound = (req, res) => {
 };
 
 // src/app/routes/index.ts
-import { Router as Router17 } from "express";
+import { Router as Router16 } from "express";
 
 // src/app/module/auth/auth.route.ts
 import { Router } from "express";
@@ -947,339 +947,6 @@ var auth = betterAuth({
 
 // src/app/module/auth/auth.service.ts
 import ms2 from "ms";
-var registerUser = async (payload) => {
-  const { name, email, password, image } = payload;
-  const data = await auth.api.signUpEmail({
-    body: {
-      name,
-      email,
-      password,
-      image
-    }
-  });
-  if (!data.user) {
-    throw new AppError_default(status6.BAD_REQUEST, "Failed to register user");
-  }
-  const accessToken = tokenUtils.getAccessToken({
-    userId: data.user.id,
-    role: data.user.role,
-    name: data.user.name,
-    email: data.user.email,
-    status: data.user.status,
-    isDeleted: data.user.isDeleted,
-    emailVerified: data.user.emailVerified
-  });
-  const refreshToken = tokenUtils.getRefreshToken({
-    userId: data.user.id,
-    role: data.user.role,
-    name: data.user.name,
-    email: data.user.email,
-    status: data.user.status,
-    isDeleted: data.user.isDeleted,
-    emailVerified: data.user.emailVerified
-  });
-  return {
-    ...data,
-    accessToken,
-    refreshToken
-  };
-};
-var loginUser = async (payload) => {
-  const { email, password } = payload;
-  const data = await auth.api.signInEmail({
-    body: {
-      email,
-      password
-    }
-  });
-  if (data.user.status === UserStatus.SUSPENDED) {
-    throw new AppError_default(status6.FORBIDDEN, "User is suspended");
-  }
-  if (data.user.isDeleted) {
-    throw new AppError_default(status6.NOT_FOUND, "User is deleted");
-  }
-  const accessToken = tokenUtils.getAccessToken({
-    userId: data.user.id,
-    role: data.user.role,
-    name: data.user.name,
-    email: data.user.email,
-    status: data.user.status,
-    isDeleted: data.user.isDeleted,
-    emailVerified: data.user.emailVerified
-  });
-  const refreshToken = tokenUtils.getRefreshToken({
-    userId: data.user.id,
-    role: data.user.role,
-    name: data.user.name,
-    email: data.user.email,
-    status: data.user.status,
-    isDeleted: data.user.isDeleted,
-    emailVerified: data.user.emailVerified
-  });
-  return {
-    ...data,
-    accessToken,
-    refreshToken
-  };
-};
-var getNewToken = async (refreshToken, sessionToken) => {
-  const session = await prisma.session.findUnique({
-    where: {
-      token: sessionToken
-    },
-    include: {
-      user: true
-    }
-  });
-  if (!session) {
-    throw new AppError_default(status6.UNAUTHORIZED, "Invalid session token");
-  }
-  const verifiedRefreshToken = jwtUtils.verifyToken(
-    refreshToken,
-    envVars.REFRESH_TOKEN_SECRET
-  );
-  if (!verifiedRefreshToken.success || !verifiedRefreshToken.data) {
-    throw new AppError_default(status6.UNAUTHORIZED, "Invalid refresh token");
-  }
-  const data = verifiedRefreshToken.data;
-  const newAccessToken = tokenUtils.getAccessToken({
-    userId: data.userId,
-    role: data.role,
-    name: data.name,
-    email: data.email,
-    status: data.status,
-    isDeleted: data.isDeleted,
-    emailVerified: data.emailVerified
-  });
-  const newRefreshToken = tokenUtils.getRefreshToken({
-    userId: data.userId,
-    role: data.role,
-    name: data.name,
-    email: data.email,
-    status: data.status,
-    isDeleted: data.isDeleted,
-    emailVerified: data.emailVerified
-  });
-  const { token } = await prisma.session.update({
-    where: {
-      token: sessionToken
-    },
-    data: {
-      token: sessionToken,
-      expiresAt: new Date(
-        Date.now() + ms2(
-          envVars.REFRESH_TOKEN_EXPIRES_IN
-        )
-      ),
-      updatedAt: /* @__PURE__ */ new Date()
-    }
-  });
-  return {
-    accessToken: newAccessToken,
-    refreshToken: newRefreshToken,
-    sessionToken: token
-  };
-};
-var AuthService = {
-  registerUser,
-  loginUser,
-  getNewToken
-};
-
-// src/app/module/auth/auth.controller.ts
-var registerUser2 = catchAsync(async (req, res) => {
-  const payload = req.body;
-  const result = await AuthService.registerUser(payload);
-  const { accessToken, refreshToken, token, ...rest } = result;
-  tokenUtils.setAccessTokenCookie(res, accessToken);
-  tokenUtils.setRefreshTokenCookie(res, refreshToken);
-  tokenUtils.setBetterAuthSessionCookie(res, token);
-  sendResponse(res, {
-    httpStatusCode: status7.CREATED,
-    success: true,
-    message: "User registered successfully",
-    data: {
-      token,
-      accessToken,
-      refreshToken,
-      ...rest
-    }
-  });
-});
-var loginUser2 = catchAsync(async (req, res) => {
-  const payload = req.body;
-  const result = await AuthService.loginUser(payload);
-  const { accessToken, refreshToken, token, ...rest } = result;
-  tokenUtils.setAccessTokenCookie(res, accessToken);
-  tokenUtils.setRefreshTokenCookie(res, refreshToken);
-  tokenUtils.setBetterAuthSessionCookie(res, token);
-  sendResponse(res, {
-    httpStatusCode: status7.OK,
-    success: true,
-    message: "User logged in successfully",
-    data: {
-      token,
-      accessToken,
-      refreshToken,
-      ...rest
-    }
-  });
-});
-var getNewToken2 = catchAsync(
-  async (req, res) => {
-    const refreshToken = req.cookies.refreshToken;
-    const betterAuthSessionToken = req.cookies["better-auth.session_token"];
-    if (!refreshToken) {
-      throw new AppError_default(status7.UNAUTHORIZED, "Refresh token is missing");
-    }
-    const result = await AuthService.getNewToken(refreshToken, betterAuthSessionToken);
-    const { accessToken, refreshToken: newRefreshToken, sessionToken } = result;
-    tokenUtils.setAccessTokenCookie(res, accessToken);
-    tokenUtils.setRefreshTokenCookie(res, newRefreshToken);
-    tokenUtils.setBetterAuthSessionCookie(res, sessionToken);
-    sendResponse(res, {
-      httpStatusCode: status7.OK,
-      success: true,
-      message: "New tokens generated successfully",
-      data: {
-        accessToken,
-        refreshToken: newRefreshToken,
-        sessionToken
-      }
-    });
-  }
-);
-var AuthController = {
-  registerUser: registerUser2,
-  loginUser: loginUser2,
-  getNewToken: getNewToken2
-};
-
-// src/app/module/auth/auth.route.ts
-var router = Router();
-router.post("/register", AuthController.registerUser);
-router.post("/login", AuthController.loginUser);
-router.post("/refresh-token", AuthController.getNewToken);
-var AuthRoutes = router;
-
-// src/app/module/event/event.route.ts
-import { Router as Router2 } from "express";
-
-// src/app/middleware/checkAuth.ts
-import status8 from "http-status";
-var checkAuth = (...authRoles) => {
-  return async (req, res, next) => {
-    try {
-      const sessionToken = CookieUtils.getCookie(
-        req,
-        "better-auth.session_token"
-      );
-      if (!sessionToken) {
-        throw new Error(
-          "Unauthorized access! No session token provided."
-        );
-      }
-      if (sessionToken) {
-        const sessionExists = await prisma.session.findFirst({
-          where: {
-            token: sessionToken,
-            expiresAt: {
-              gt: /* @__PURE__ */ new Date()
-            }
-          },
-          include: {
-            user: true
-          }
-        });
-        if (sessionExists && sessionExists.user) {
-          const user = sessionExists.user;
-          const now = /* @__PURE__ */ new Date();
-          const expiresAt = new Date(sessionExists.expiresAt);
-          const createdAt = new Date(sessionExists.createdAt);
-          const sessionLifeTime = expiresAt.getTime() - createdAt.getTime();
-          const timeRemaining = expiresAt.getTime() - now.getTime();
-          const percentRemaining = timeRemaining / sessionLifeTime * 100;
-          if (percentRemaining < 20) {
-            res.setHeader("X-Session-Refresh", "true");
-            res.setHeader(
-              "X-Session-Expires-At",
-              expiresAt.toISOString()
-            );
-            res.setHeader(
-              "X-Time-Remaining",
-              timeRemaining.toString()
-            );
-          }
-          if (user.status === UserStatus.SUSPENDED) {
-            throw new AppError_default(
-              status8.UNAUTHORIZED,
-              "Unauthorized access! User is not active."
-            );
-          }
-          if (user.isDeleted) {
-            throw new AppError_default(
-              status8.UNAUTHORIZED,
-              "Unauthorized access! User is deleted."
-            );
-          }
-          if (authRoles.length > 0 && !authRoles.includes(user.role)) {
-            throw new AppError_default(
-              status8.FORBIDDEN,
-              "Forbidden access! You do not have permission to access this resource."
-            );
-          }
-          req.user = {
-            userId: user.id,
-            role: user.role,
-            email: user.email
-          };
-        }
-        const accessToken2 = CookieUtils.getCookie(
-          req,
-          "accessToken"
-        );
-        if (!accessToken2) {
-          throw new AppError_default(
-            status8.UNAUTHORIZED,
-            "Unauthorized access! No access token provided."
-          );
-        }
-      }
-      const accessToken = CookieUtils.getCookie(req, "accessToken");
-      if (!accessToken) {
-        throw new AppError_default(
-          status8.UNAUTHORIZED,
-          "Unauthorized access! No access token provided."
-        );
-      }
-      const verifiedToken = jwtUtils.verifyToken(
-        accessToken,
-        envVars.ACCESS_TOKEN_SECRET
-      );
-      if (!verifiedToken.success) {
-        throw new AppError_default(
-          status8.UNAUTHORIZED,
-          "Unauthorized access! Invalid access token."
-        );
-      }
-      if (authRoles.length > 0 && !authRoles.includes(verifiedToken.data.role)) {
-        throw new AppError_default(
-          status8.FORBIDDEN,
-          "Forbidden access! You do not have permission to access this resource."
-        );
-      }
-      next();
-    } catch (error) {
-      next(error);
-    }
-  };
-};
-
-// src/app/module/event/event.controller.ts
-import status10 from "http-status";
-
-// src/app/module/event/event.service.ts
-import status9 from "http-status";
 
 // src/app/utils/QueryBuilder.ts
 var QueryBuilder = class {
@@ -1624,6 +1291,399 @@ var QueryBuilder = class {
   }
 };
 
+// src/app/module/audit/audit.service.ts
+var AuditLogService = {
+  logAction: async (action, entityType, entityId = null, actorId = null, description = null, metadata = null, req) => {
+    try {
+      const ipAddress = req?.ip || req?.headers?.["x-forwarded-for"] || null;
+      const userAgent = req?.headers?.["user-agent"] || null;
+      await prisma.auditLog.create({
+        data: {
+          action,
+          entityType,
+          entityId,
+          description,
+          metadata: metadata ? metadata : void 0,
+          actorId,
+          ipAddress: typeof ipAddress === "string" ? ipAddress : void 0,
+          userAgent
+        }
+      });
+    } catch (error) {
+      console.error("Failed to log audit action:", error);
+    }
+  }
+};
+var getAllLogs = async (query = {}) => {
+  const qb = new QueryBuilder(prisma.auditLog, query, {
+    searchableFields: ["entityType", "entityId", "description", "actor.email"],
+    filterableFields: ["entityType", "entityId", "actorId", "action"]
+  });
+  return qb.search().filter().include({
+    actor: {
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true
+      }
+    }
+  }).sort().paginate().execute();
+};
+var AuditService = {
+  getAllLogs
+};
+
+// src/app/module/auth/auth.service.ts
+var registerUser = async (payload) => {
+  const { name, email, password, image, role } = payload;
+  const data = await auth.api.signUpEmail({
+    body: {
+      name,
+      email,
+      password,
+      image,
+      role
+    }
+  });
+  if (!data.user) {
+    throw new AppError_default(status6.BAD_REQUEST, "Failed to register user");
+  }
+  await AuditLogService.logAction(
+    AuditAction.REGISTER,
+    role || "USER",
+    data.user.id,
+    data.user.id,
+    "User self-registered"
+  );
+  const accessToken = tokenUtils.getAccessToken({
+    userId: data.user.id,
+    role: data.user.role,
+    name: data.user.name,
+    email: data.user.email,
+    status: data.user.status,
+    isDeleted: data.user.isDeleted,
+    emailVerified: data.user.emailVerified
+  });
+  const refreshToken = tokenUtils.getRefreshToken({
+    userId: data.user.id,
+    role: data.user.role,
+    name: data.user.name,
+    email: data.user.email,
+    status: data.user.status,
+    isDeleted: data.user.isDeleted,
+    emailVerified: data.user.emailVerified
+  });
+  return {
+    ...data,
+    accessToken,
+    refreshToken
+  };
+};
+var loginUser = async (payload) => {
+  const { email, password } = payload;
+  const data = await auth.api.signInEmail({
+    body: {
+      email,
+      password
+    }
+  });
+  if (data.user.status === UserStatus.SUSPENDED) {
+    throw new AppError_default(status6.FORBIDDEN, "User is suspended");
+  }
+  if (data.user.isDeleted) {
+    throw new AppError_default(status6.NOT_FOUND, "User is deleted");
+  }
+  await AuditLogService.logAction(
+    AuditAction.LOGIN,
+    data.user.role,
+    data.user.id,
+    data.user.id,
+    "User logged in"
+  );
+  const accessToken = tokenUtils.getAccessToken({
+    userId: data.user.id,
+    role: data.user.role,
+    name: data.user.name,
+    email: data.user.email,
+    status: data.user.status,
+    isDeleted: data.user.isDeleted,
+    emailVerified: data.user.emailVerified
+  });
+  const refreshToken = tokenUtils.getRefreshToken({
+    userId: data.user.id,
+    role: data.user.role,
+    name: data.user.name,
+    email: data.user.email,
+    status: data.user.status,
+    isDeleted: data.user.isDeleted,
+    emailVerified: data.user.emailVerified
+  });
+  return {
+    ...data,
+    accessToken,
+    refreshToken
+  };
+};
+var getNewToken = async (refreshToken, sessionToken) => {
+  const session = await prisma.session.findUnique({
+    where: {
+      token: sessionToken
+    },
+    include: {
+      user: true
+    }
+  });
+  if (!session) {
+    throw new AppError_default(status6.UNAUTHORIZED, "Invalid session token");
+  }
+  const verifiedRefreshToken = jwtUtils.verifyToken(
+    refreshToken,
+    envVars.REFRESH_TOKEN_SECRET
+  );
+  if (!verifiedRefreshToken.success || !verifiedRefreshToken.data) {
+    throw new AppError_default(status6.UNAUTHORIZED, "Invalid refresh token");
+  }
+  const data = verifiedRefreshToken.data;
+  const newAccessToken = tokenUtils.getAccessToken({
+    userId: data.userId,
+    role: data.role,
+    name: data.name,
+    email: data.email,
+    status: data.status,
+    isDeleted: data.isDeleted,
+    emailVerified: data.emailVerified
+  });
+  const newRefreshToken = tokenUtils.getRefreshToken({
+    userId: data.userId,
+    role: data.role,
+    name: data.name,
+    email: data.email,
+    status: data.status,
+    isDeleted: data.isDeleted,
+    emailVerified: data.emailVerified
+  });
+  const { token } = await prisma.session.update({
+    where: {
+      token: sessionToken
+    },
+    data: {
+      token: sessionToken,
+      expiresAt: new Date(
+        Date.now() + ms2(
+          envVars.REFRESH_TOKEN_EXPIRES_IN
+        )
+      ),
+      updatedAt: /* @__PURE__ */ new Date()
+    }
+  });
+  return {
+    accessToken: newAccessToken,
+    refreshToken: newRefreshToken,
+    sessionToken: token
+  };
+};
+var AuthService = {
+  registerUser,
+  loginUser,
+  getNewToken
+};
+
+// src/app/module/auth/auth.controller.ts
+var registerUser2 = catchAsync(async (req, res) => {
+  const payload = req.body;
+  const result = await AuthService.registerUser(payload);
+  const { accessToken, refreshToken, token, ...rest } = result;
+  tokenUtils.setAccessTokenCookie(res, accessToken);
+  tokenUtils.setRefreshTokenCookie(res, refreshToken);
+  tokenUtils.setBetterAuthSessionCookie(res, token);
+  sendResponse(res, {
+    httpStatusCode: status7.CREATED,
+    success: true,
+    message: "User registered successfully",
+    data: {
+      token,
+      accessToken,
+      refreshToken,
+      ...rest
+    }
+  });
+});
+var loginUser2 = catchAsync(async (req, res) => {
+  const payload = req.body;
+  const result = await AuthService.loginUser(payload);
+  const { accessToken, refreshToken, token, ...rest } = result;
+  tokenUtils.setAccessTokenCookie(res, accessToken);
+  tokenUtils.setRefreshTokenCookie(res, refreshToken);
+  tokenUtils.setBetterAuthSessionCookie(res, token);
+  sendResponse(res, {
+    httpStatusCode: status7.OK,
+    success: true,
+    message: "User logged in successfully",
+    data: {
+      token,
+      accessToken,
+      refreshToken,
+      ...rest
+    }
+  });
+});
+var getNewToken2 = catchAsync(
+  async (req, res) => {
+    const refreshToken = req.cookies.refreshToken;
+    const betterAuthSessionToken = req.cookies["better-auth.session_token"];
+    if (!refreshToken) {
+      throw new AppError_default(status7.UNAUTHORIZED, "Refresh token is missing");
+    }
+    const result = await AuthService.getNewToken(refreshToken, betterAuthSessionToken);
+    const { accessToken, refreshToken: newRefreshToken, sessionToken } = result;
+    tokenUtils.setAccessTokenCookie(res, accessToken);
+    tokenUtils.setRefreshTokenCookie(res, newRefreshToken);
+    tokenUtils.setBetterAuthSessionCookie(res, sessionToken);
+    sendResponse(res, {
+      httpStatusCode: status7.OK,
+      success: true,
+      message: "New tokens generated successfully",
+      data: {
+        accessToken,
+        refreshToken: newRefreshToken,
+        sessionToken
+      }
+    });
+  }
+);
+var AuthController = {
+  registerUser: registerUser2,
+  loginUser: loginUser2,
+  getNewToken: getNewToken2
+};
+
+// src/app/module/auth/auth.route.ts
+var router = Router();
+router.post("/register", AuthController.registerUser);
+router.post("/login", AuthController.loginUser);
+router.post("/refresh-token", AuthController.getNewToken);
+var AuthRoutes = router;
+
+// src/app/module/event/event.route.ts
+import { Router as Router2 } from "express";
+
+// src/app/middleware/checkAuth.ts
+import status8 from "http-status";
+var checkAuth = (...authRoles) => {
+  return async (req, res, next) => {
+    try {
+      const sessionToken = CookieUtils.getCookie(
+        req,
+        "better-auth.session_token"
+      );
+      if (!sessionToken) {
+        throw new Error(
+          "Unauthorized access! No session token provided."
+        );
+      }
+      if (sessionToken) {
+        const sessionExists = await prisma.session.findFirst({
+          where: {
+            token: sessionToken,
+            expiresAt: {
+              gt: /* @__PURE__ */ new Date()
+            }
+          },
+          include: {
+            user: true
+          }
+        });
+        if (sessionExists && sessionExists.user) {
+          const user = sessionExists.user;
+          const now = /* @__PURE__ */ new Date();
+          const expiresAt = new Date(sessionExists.expiresAt);
+          const createdAt = new Date(sessionExists.createdAt);
+          const sessionLifeTime = expiresAt.getTime() - createdAt.getTime();
+          const timeRemaining = expiresAt.getTime() - now.getTime();
+          const percentRemaining = timeRemaining / sessionLifeTime * 100;
+          if (percentRemaining < 20) {
+            res.setHeader("X-Session-Refresh", "true");
+            res.setHeader(
+              "X-Session-Expires-At",
+              expiresAt.toISOString()
+            );
+            res.setHeader(
+              "X-Time-Remaining",
+              timeRemaining.toString()
+            );
+          }
+          if (user.status === UserStatus.SUSPENDED) {
+            throw new AppError_default(
+              status8.UNAUTHORIZED,
+              "Unauthorized access! User is not active."
+            );
+          }
+          if (user.isDeleted) {
+            throw new AppError_default(
+              status8.UNAUTHORIZED,
+              "Unauthorized access! User is deleted."
+            );
+          }
+          if (authRoles.length > 0 && !authRoles.includes(user.role)) {
+            throw new AppError_default(
+              status8.FORBIDDEN,
+              "Forbidden access! You do not have permission to access this resource."
+            );
+          }
+          req.user = {
+            userId: user.id,
+            role: user.role,
+            email: user.email
+          };
+        }
+        const accessToken2 = CookieUtils.getCookie(
+          req,
+          "accessToken"
+        );
+        if (!accessToken2) {
+          throw new AppError_default(
+            status8.UNAUTHORIZED,
+            "Unauthorized access! No access token provided."
+          );
+        }
+      }
+      const accessToken = CookieUtils.getCookie(req, "accessToken");
+      if (!accessToken) {
+        throw new AppError_default(
+          status8.UNAUTHORIZED,
+          "Unauthorized access! No access token provided."
+        );
+      }
+      const verifiedToken = jwtUtils.verifyToken(
+        accessToken,
+        envVars.ACCESS_TOKEN_SECRET
+      );
+      if (!verifiedToken.success) {
+        throw new AppError_default(
+          status8.UNAUTHORIZED,
+          "Unauthorized access! Invalid access token."
+        );
+      }
+      if (authRoles.length > 0 && !authRoles.includes(verifiedToken.data.role)) {
+        throw new AppError_default(
+          status8.FORBIDDEN,
+          "Forbidden access! You do not have permission to access this resource."
+        );
+      }
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+};
+
+// src/app/module/event/event.controller.ts
+import status10 from "http-status";
+
+// src/app/module/event/event.service.ts
+import status9 from "http-status";
+
 // src/app/module/event/event.constant.ts
 var eventSearchableFields = ["title"];
 var eventFilterableFields = ["categoryId", "type"];
@@ -1636,13 +1696,21 @@ var createEvent = async (user, payload) => {
   if (!categoryExists) {
     throw new Error("Category does not exist");
   }
-  return prisma.event.create({
+  const createdEvent = await prisma.event.create({
     data: {
       ...payload,
       organizerId: user.userId,
       dateTime: new Date(payload.dateTime)
     }
   });
+  await AuditLogService.logAction(
+    AuditAction.CREATE,
+    "event",
+    createdEvent.id,
+    user.userId,
+    `Created event: ${createdEvent.title}`
+  );
+  return createdEvent;
 };
 var getAllEvents = async (query) => {
   const queryBuilder = new QueryBuilder(
@@ -1667,7 +1735,7 @@ var getAllEvents = async (query) => {
   }).sort().paginate().execute();
   return result;
 };
-var getMyEvents = async (user, query) => {
+var getOrganizerEvents = async (user, query) => {
   const queryBuilder = new QueryBuilder(prisma.event, query);
   const result = await queryBuilder.where({
     organizerId: user.userId
@@ -1777,8 +1845,8 @@ var organizersSingleEventById = async (id) => {
 var updateEvent = async (id, user, payload) => {
   const event = await prisma.event.findUnique({ where: { id } });
   if (!event) throw new AppError_default(status9.NOT_FOUND, "Event not found");
-  if (event.organizerId !== user.userId && user.role !== Role.ADMIN) {
-    throw new AppError_default(status9.FORBIDDEN, "Not authorized");
+  if (event.organizerId !== user.userId) {
+    throw new AppError_default(status9.FORBIDDEN, "You are not authorized to update this event");
   }
   if (payload.categoryId) {
     const categoryExists = await prisma.category.findUnique({
@@ -1819,6 +1887,13 @@ var deleteEventByOrganizer = async (id, user) => {
   await prisma.event.delete({
     where: { id }
   });
+  await AuditLogService.logAction(
+    AuditAction.DELETE,
+    "event",
+    id,
+    user.userId,
+    "Deleted event by organizer"
+  );
   return null;
 };
 var getAllEventsAdmin = async (query) => {
@@ -1831,7 +1906,7 @@ var getAllEventsAdmin = async (query) => {
   }).sort().paginate().execute();
   return result;
 };
-var deleteEventByAdmin = async (id) => {
+var deleteEventByAdmin = async (id, user) => {
   const event = await prisma.event.findUnique({
     where: { id }
   });
@@ -1841,6 +1916,13 @@ var deleteEventByAdmin = async (id) => {
   await prisma.event.delete({
     where: { id }
   });
+  await AuditLogService.logAction(
+    AuditAction.DELETE,
+    "event",
+    id,
+    user.userId,
+    "Deleted event by admin"
+  );
   return null;
 };
 var updateFeaturedStatus = async (id, isFeatured) => {
@@ -1887,7 +1969,7 @@ var EventService = {
   getAllEvents,
   getSingleEventPublic,
   organizersSingleEventById,
-  getMyEvents,
+  getOrganizerEvents,
   updateEvent,
   deleteEventByOrganizer,
   getAllEventsAdmin,
@@ -1946,13 +2028,13 @@ var organizersSingleEventById2 = catchAsync(async (req, res) => {
     data: event
   });
 });
-var getMyEvents2 = catchAsync(async (req, res) => {
+var getOrganizerEvents2 = catchAsync(async (req, res) => {
   const query = req.query;
   const user = req.user;
   if (!user) {
     throw new AppError_default(status10.UNAUTHORIZED, "Unauthorized");
   }
-  const result = await EventService.getMyEvents(user, query);
+  const result = await EventService.getOrganizerEvents(user, query);
   sendResponse(res, {
     httpStatusCode: status10.OK,
     success: true,
@@ -2002,8 +2084,9 @@ var getAllEventsAdmin2 = catchAsync(async (req, res) => {
   });
 });
 var deleteEventByAdmin2 = catchAsync(async (req, res) => {
+  const user = req.user;
   const { id } = req.params;
-  const result = await EventService.deleteEventByAdmin(id);
+  const result = await EventService.deleteEventByAdmin(id, user);
   sendResponse(res, {
     httpStatusCode: status10.OK,
     success: true,
@@ -2036,7 +2119,7 @@ var EventController = {
   getAllEvents: getAllEvents2,
   getSingleEventPublic: getSingleEventPublic2,
   organizersSingleEventById: organizersSingleEventById2,
-  getMyEvents: getMyEvents2,
+  getOrganizerEvents: getOrganizerEvents2,
   updateEvent: updateEvent2,
   deleteEventByOrganizer: deleteEventByOrganizer2,
   getAllEventsAdmin: getAllEventsAdmin2,
@@ -2048,16 +2131,16 @@ var EventController = {
 // src/app/module/event/event.route.ts
 var router2 = Router2();
 router2.get("/", EventController.getAllEvents);
-router2.get("/featured", checkAuth(Role.ADMIN), EventController.getFeaturedEvents);
-router2.get("/public/:id", checkAuth(Role.USER, Role.ADMIN), EventController.getSingleEventPublic);
-router2.get("/admin/all", checkAuth(Role.ADMIN), EventController.getAllEventsAdmin);
-router2.delete("/admin/:id", checkAuth(Role.ADMIN), EventController.deleteEventByAdmin);
-router2.patch("/admin/feature/:id", checkAuth(Role.ADMIN), EventController.updateFeaturedStatus);
-router2.post("/", checkAuth(Role.USER, Role.ADMIN), EventController.createEvent);
-router2.get("/me/events", checkAuth(Role.USER, Role.ADMIN), EventController.getMyEvents);
-router2.get("/:id", checkAuth(Role.USER, Role.ADMIN), EventController.organizersSingleEventById);
-router2.patch("/:id", checkAuth(Role.USER, Role.ADMIN), EventController.updateEvent);
-router2.delete("/:id", checkAuth(Role.USER, Role.ADMIN), EventController.deleteEventByOrganizer);
+router2.get("/featured", checkAuth(Role.ADMIN, Role.SUPERADMIN), EventController.getFeaturedEvents);
+router2.get("/public/:id", checkAuth(Role.USER, Role.ADMIN, Role.SUPERADMIN, Role.ORGANIZER), EventController.getSingleEventPublic);
+router2.get("/admin/all", checkAuth(Role.ADMIN, Role.SUPERADMIN), EventController.getAllEventsAdmin);
+router2.delete("/admin/:id", checkAuth(Role.ADMIN, Role.SUPERADMIN), EventController.deleteEventByAdmin);
+router2.patch("/admin/feature/:id", checkAuth(Role.ADMIN, Role.SUPERADMIN), EventController.updateFeaturedStatus);
+router2.post("/", checkAuth(Role.ORGANIZER), EventController.createEvent);
+router2.get("/me/events", checkAuth(Role.ORGANIZER), EventController.getOrganizerEvents);
+router2.get("/:id", checkAuth(Role.ORGANIZER), EventController.organizersSingleEventById);
+router2.patch("/:id", checkAuth(Role.ORGANIZER), EventController.updateEvent);
+router2.delete("/:id", checkAuth(Role.ORGANIZER), EventController.deleteEventByOrganizer);
 var EventRoutes = router2;
 
 // src/app/module/participation/participation.route.ts
@@ -2068,23 +2151,28 @@ import status12 from "http-status";
 
 // src/app/module/participation/participation.service.ts
 import status11 from "http-status";
-var getMyEvents3 = async (user, query) => {
-  if (!user?.userId) {
-    throw new AppError_default(status11.UNAUTHORIZED, "Unauthorized");
-  }
-  const approvedQB = new QueryBuilder(
-    prisma.participation,
-    query
-  ).where({
+var getMyEvents = async (user, query) => {
+  const qb = new QueryBuilder(prisma.participation, query, {
+    searchableFields: ["event.title", "event.description"]
+  });
+  const result = await qb.where({
     userId: user.userId,
     OR: [
       { status: ParticipationStatus.APPROVED },
       {
         payment: {
-          some: {
-            status: PaymentStatus.SUCCESS
-          }
+          some: { status: PaymentStatus.SUCCESS }
         }
+      },
+      {
+        AND: [
+          { status: ParticipationStatus.PENDING },
+          {
+            payment: {
+              none: { status: PaymentStatus.SUCCESS }
+            }
+          }
+        ]
       }
     ]
   }).include({
@@ -2100,18 +2188,11 @@ var getMyEvents3 = async (user, query) => {
         images: true,
         meetingLink: true,
         organizer: {
-          select: {
-            id: true,
-            name: true
-          }
+          select: { id: true, name: true }
         },
         reviews: {
-          where: {
-            userId: user.userId
-          },
-          select: {
-            id: true
-          }
+          where: { userId: user.userId },
+          select: { id: true }
         }
       }
     },
@@ -2126,51 +2207,8 @@ var getMyEvents3 = async (user, query) => {
         transactionId: true
       }
     }
-  }).sort().paginate();
-  const approvedResult = await approvedQB.execute();
-  const pendingQB = new QueryBuilder(
-    prisma.participation,
-    query
-  ).where({
-    userId: user.userId,
-    status: ParticipationStatus.PENDING,
-    payment: {
-      none: {
-        status: PaymentStatus.SUCCESS
-      }
-    }
-  }).include({
-    event: {
-      select: {
-        id: true,
-        title: true,
-        dateTime: true,
-        type: true,
-        venue: true,
-        fee: true,
-        images: true
-      }
-    }
-  }).sort().paginate();
-  const pendingResult = await pendingQB.execute();
-  const mergedData = [
-    ...approvedResult.data,
-    ...pendingResult.data
-  ].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
-  const total = approvedResult.meta.total + pendingResult.meta.total;
-  const limit = approvedResult.meta.limit;
-  const page = approvedResult.meta.page;
-  return {
-    data: mergedData,
-    meta: {
-      page,
-      limit,
-      total,
-      totalPages: Math.ceil(total / limit)
-    }
-  };
+  }).search().sort().paginate().execute();
+  return result;
 };
 var getEventParticipants = async (user, eventId) => {
   const event = await prisma.event.findUnique({
@@ -2180,8 +2218,7 @@ var getEventParticipants = async (user, eventId) => {
     throw new AppError_default(status11.NOT_FOUND, "Event not found");
   }
   const isOrganizer = event.organizerId === user.userId;
-  const isAdmin = user.role === "ADMIN";
-  if (!isOrganizer && !isAdmin) {
+  if (!isOrganizer) {
     throw new AppError_default(
       status11.FORBIDDEN,
       "You are not allowed to view participants"
@@ -2195,9 +2232,6 @@ var getEventParticipants = async (user, eventId) => {
   });
 };
 var getMyAllEventParticipants = async (user) => {
-  if (!user?.userId) {
-    throw new AppError_default(status11.UNAUTHORIZED, "Unauthorized");
-  }
   const events = await prisma.event.findMany({
     where: { organizerId: user.userId },
     select: {
@@ -2281,7 +2315,7 @@ var updateStatus = async (user, participationId, newStatus) => {
   if (!participation) {
     throw new AppError_default(status11.NOT_FOUND, "Participation not found");
   }
-  if (participation.event.organizerId !== user.userId && user.role !== "ADMIN") {
+  if (participation.event.organizerId !== user.userId) {
     throw new AppError_default(status11.FORBIDDEN, "Not authorized");
   }
   return prisma.participation.update({
@@ -2290,14 +2324,14 @@ var updateStatus = async (user, participationId, newStatus) => {
   });
 };
 var ParticipationService = {
-  getMyEvents: getMyEvents3,
+  getMyEvents,
   getMyAllEventParticipants,
   getEventParticipants,
   updateStatus
 };
 
 // src/app/module/participation/participation.controller.ts
-var getMyEvents4 = catchAsync(async (req, res) => {
+var getMyEvents2 = catchAsync(async (req, res) => {
   const user = req.user;
   const query = req.query;
   const result = await ParticipationService.getMyEvents(user, query);
@@ -2355,7 +2389,7 @@ var updateStatus2 = catchAsync(async (req, res) => {
   });
 });
 var ParticipationController = {
-  getMyEvents: getMyEvents4,
+  getMyEvents: getMyEvents2,
   getMyAllEventParticipants: getMyAllEventParticipants2,
   getEventParticipants: getEventParticipants2,
   updateStatus: updateStatus2
@@ -2365,22 +2399,22 @@ var ParticipationController = {
 var router3 = Router3();
 router3.get(
   "/my-events",
-  checkAuth(Role.USER, Role.ADMIN),
+  checkAuth(Role.USER, Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
   ParticipationController.getMyEvents
 );
 router3.get(
   "/event/:eventId",
-  checkAuth(Role.USER, Role.ADMIN),
+  checkAuth(Role.ORGANIZER),
   ParticipationController.getEventParticipants
 );
 router3.get(
   "/my-all-participants",
-  checkAuth(Role.USER, Role.ADMIN),
+  checkAuth(Role.ORGANIZER),
   ParticipationController.getMyAllEventParticipants
 );
 router3.patch(
   "/:id/status",
-  checkAuth(Role.USER, Role.ADMIN),
+  checkAuth(Role.ORGANIZER),
   ParticipationController.updateStatus
 );
 var ParticipationRoutes = router3;
@@ -2389,46 +2423,112 @@ var ParticipationRoutes = router3;
 import { Router as Router4 } from "express";
 
 // src/app/module/invitation/invitation.controller.ts
-import status14 from "http-status";
+import status15 from "http-status";
 
 // src/app/module/invitation/invitation.service.ts
+import status14 from "http-status";
+
+// src/app/module/notification/notification.service.ts
 import status13 from "http-status";
+var NotificationService = {
+  sendNotification: async (userId, title, message, type = NotificationType.INFO, eventId, paymentId, metadata) => {
+    try {
+      await prisma.notification.create({
+        data: {
+          userId,
+          title,
+          message,
+          type,
+          eventId,
+          paymentId,
+          metadata: metadata ? metadata : void 0
+        }
+      });
+    } catch (error) {
+      console.error("Failed to send notification:", error);
+    }
+  },
+  getMyNotifications: async (userId) => {
+    return prisma.notification.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" }
+    });
+  },
+  markAsRead: async (userId, notificationId) => {
+    const notification = await prisma.notification.findUnique({
+      where: { id: notificationId }
+    });
+    if (!notification) {
+      throw new AppError_default(status13.NOT_FOUND, "Notification not found");
+    }
+    if (notification.userId !== userId) {
+      throw new AppError_default(status13.FORBIDDEN, "Unauthorized");
+    }
+    return prisma.notification.update({
+      where: { id: notificationId },
+      data: { isRead: true }
+    });
+  },
+  markAllAsRead: async (userId) => {
+    return prisma.notification.updateMany({
+      where: { userId, isRead: false },
+      data: { isRead: true }
+    });
+  }
+};
+
+// src/app/module/invitation/invitation.service.ts
 var sendInvitation = async (user, eventId, targetUserId) => {
   const event = await prisma.event.findUnique({ where: { id: eventId } });
-  if (!event) throw new AppError_default(status13.NOT_FOUND, "Event not found");
+  if (!event) throw new AppError_default(status14.NOT_FOUND, "Event not found");
   if (event.visibility !== EventVisibility.PRIVATE) {
-    throw new AppError_default(status13.BAD_REQUEST, "Invitations only for private events");
+    throw new AppError_default(status14.BAD_REQUEST, "Invitations only for private events");
   }
-  if (event.organizerId !== user.userId && user.role !== "ADMIN") {
-    throw new AppError_default(status13.FORBIDDEN, "Not authorized");
+  if (event.organizerId !== user.userId) {
+    throw new AppError_default(status14.FORBIDDEN, "Not authorized");
   }
   if (event.organizerId === targetUserId) {
-    throw new AppError_default(status13.BAD_REQUEST, "Organizer cannot invite self");
+    throw new AppError_default(status14.BAD_REQUEST, "Organizer cannot invite self");
   }
   const existingParticipation = await prisma.participation.findUnique({
     where: { userId_eventId: { userId: targetUserId, eventId } }
   });
   if (existingParticipation) {
-    throw new AppError_default(status13.BAD_REQUEST, "User already joined");
+    throw new AppError_default(status14.BAD_REQUEST, "User already joined");
   }
   const existingInvitation = await prisma.invitation.findFirst({
     where: { userId: targetUserId, eventId }
   });
   if (existingInvitation) {
-    throw new AppError_default(status13.BAD_REQUEST, "User has already been invited");
+    throw new AppError_default(status14.BAD_REQUEST, "User has already been invited");
   }
-  return prisma.invitation.create({
+  const invitation = await prisma.invitation.create({
     data: {
       eventId,
       userId: targetUserId
     }
   });
+  await AuditLogService.logAction(
+    AuditAction.CREATE,
+    "invitation",
+    invitation.id,
+    user.userId,
+    `Sent invitation to target user`
+  );
+  await NotificationService.sendNotification(
+    targetUserId,
+    "New Event Invitation",
+    `You have been invited to an event!`,
+    NotificationType.INVITATION,
+    eventId
+  );
+  return invitation;
 };
 var getEventInvitations = async (user, eventId) => {
   const event = await prisma.event.findUnique({ where: { id: eventId } });
-  if (!event) throw new AppError_default(status13.NOT_FOUND, "Event not found");
-  if (event.organizerId !== user.userId && user.role !== "ADMIN") {
-    throw new AppError_default(status13.FORBIDDEN, "Not authorized");
+  if (!event) throw new AppError_default(status14.NOT_FOUND, "Event not found");
+  if (event.organizerId !== user.userId) {
+    throw new AppError_default(status14.FORBIDDEN, "Not authorized");
   }
   return prisma.invitation.findMany({
     where: { eventId },
@@ -2436,9 +2536,6 @@ var getEventInvitations = async (user, eventId) => {
   });
 };
 var getMyInvitations = async (user, query) => {
-  if (!user?.userId) {
-    throw new AppError_default(status13.UNAUTHORIZED, "Unauthorized");
-  }
   const queryBuilder = new QueryBuilder(
     prisma.invitation,
     query
@@ -2460,17 +2557,14 @@ var getMyInvitations = async (user, query) => {
   return result;
 };
 var cancelInvitation = async (user, invitationId) => {
-  if (!user?.userId) {
-    throw new AppError_default(status13.UNAUTHORIZED, "Unauthorized");
-  }
   const invitation = await prisma.invitation.findUnique({
     where: { id: invitationId }
   });
   if (!invitation) {
-    throw new AppError_default(status13.NOT_FOUND, "Invitation not found");
+    throw new AppError_default(status14.NOT_FOUND, "Invitation not found");
   }
-  if (invitation.userId !== user.userId) {
-    throw new AppError_default(status13.FORBIDDEN, "You are not allowed to cancel this invitation");
+  if (invitation.userId !== user.userId && user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
+    throw new AppError_default(status14.FORBIDDEN, "You are not allowed to cancel this invitation");
   }
   return prisma.invitation.delete({
     where: { id: invitationId }
@@ -2486,7 +2580,7 @@ var InvitationService = {
 // src/app/module/invitation/invitation.controller.ts
 var sendInvitation2 = catchAsync(async (req, res) => {
   const user = req.user;
-  if (!user) throw new AppError_default(status14.UNAUTHORIZED, "Unauthorized");
+  if (!user) throw new AppError_default(status15.UNAUTHORIZED, "Unauthorized");
   const { eventId, userId } = req.body;
   const result = await InvitationService.sendInvitation(
     user,
@@ -2494,7 +2588,7 @@ var sendInvitation2 = catchAsync(async (req, res) => {
     userId
   );
   sendResponse(res, {
-    httpStatusCode: status14.CREATED,
+    httpStatusCode: status15.CREATED,
     success: true,
     message: "Invitation sent",
     data: result
@@ -2508,7 +2602,7 @@ var getEventInvitations2 = catchAsync(async (req, res) => {
     eventId
   );
   sendResponse(res, {
-    httpStatusCode: status14.OK,
+    httpStatusCode: status15.OK,
     success: true,
     message: "Event invitations fetched",
     data: result
@@ -2519,7 +2613,7 @@ var getMyInvitations2 = catchAsync(async (req, res) => {
   const query = req.query;
   const result = await InvitationService.getMyInvitations(user, query);
   sendResponse(res, {
-    httpStatusCode: status14.OK,
+    httpStatusCode: status15.OK,
     success: true,
     message: "My invitations fetched",
     data: result
@@ -2533,7 +2627,7 @@ var cancelInvitation2 = catchAsync(async (req, res) => {
     id
   );
   sendResponse(res, {
-    httpStatusCode: status14.OK,
+    httpStatusCode: status15.OK,
     success: true,
     message: "Invitation canceled",
     data: result
@@ -2550,22 +2644,22 @@ var InvitationController = {
 var router4 = Router4();
 router4.post(
   "/send",
-  checkAuth(Role.USER, Role.ADMIN),
+  checkAuth(Role.ORGANIZER),
   InvitationController.sendInvitation
 );
 router4.get(
   "/event/:eventId",
-  checkAuth(Role.USER, Role.ADMIN),
+  checkAuth(Role.ORGANIZER),
   InvitationController.getEventInvitations
 );
 router4.delete(
   "/:id",
-  checkAuth(Role.USER, Role.ADMIN),
+  checkAuth(Role.USER, Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
   InvitationController.cancelInvitation
 );
 router4.get(
   "/my",
-  checkAuth(Role.USER, Role.ADMIN),
+  checkAuth(Role.USER, Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
   InvitationController.getMyInvitations
 );
 var InvitationRoutes = router4;
@@ -2574,17 +2668,17 @@ var InvitationRoutes = router4;
 import { Router as Router5 } from "express";
 
 // src/app/module/review/review.controller.ts
-import status16 from "http-status";
+import status17 from "http-status";
 
 // src/app/module/review/review.service.ts
-import status15 from "http-status";
+import status16 from "http-status";
 var createReview = async (user, payload) => {
   const event = await prisma.event.findUnique({
     where: { id: payload.eventId }
   });
-  if (!event) throw new AppError_default(status15.NOT_FOUND, "Event not found");
+  if (!event) throw new AppError_default(status16.NOT_FOUND, "Event not found");
   if (event.organizerId === user.userId) {
-    throw new AppError_default(status15.BAD_REQUEST, "Organizer cannot review own event");
+    throw new AppError_default(status16.BAD_REQUEST, "Organizer cannot review own event");
   }
   const participation = await prisma.participation.findUnique({
     where: {
@@ -2595,7 +2689,7 @@ var createReview = async (user, payload) => {
     }
   });
   if (!participation || participation.status !== ParticipationStatus.APPROVED) {
-    throw new AppError_default(status15.FORBIDDEN, "You did not attend this event");
+    throw new AppError_default(status16.FORBIDDEN, "You did not attend this event");
   }
   const existing = await prisma.review.findUnique({
     where: {
@@ -2606,7 +2700,7 @@ var createReview = async (user, payload) => {
     }
   });
   if (existing) {
-    throw new AppError_default(status15.BAD_REQUEST, "Already reviewed");
+    throw new AppError_default(status16.BAD_REQUEST, "Already reviewed");
   }
   return prisma.review.create({
     data: {
@@ -2621,9 +2715,9 @@ var updateReview = async (user, reviewId, payload) => {
   const review = await prisma.review.findUnique({
     where: { id: reviewId }
   });
-  if (!review) throw new AppError_default(status15.NOT_FOUND, "Review not found");
+  if (!review) throw new AppError_default(status16.NOT_FOUND, "Review not found");
   if (review.userId !== user.userId) {
-    throw new AppError_default(status15.FORBIDDEN, "Not authorized");
+    throw new AppError_default(status16.FORBIDDEN, "You are not authorized to update this review");
   }
   return prisma.review.update({
     where: { id: reviewId },
@@ -2639,13 +2733,14 @@ var deleteReview = async (user, reviewId) => {
     }
   });
   if (!review) {
-    throw new AppError_default(status15.NOT_FOUND, "Review not found");
+    throw new AppError_default(status16.NOT_FOUND, "Review not found");
   }
   const isOwner = review.userId === user.userId;
   const isOrganizer = review.event.organizerId === user.userId;
   const isAdmin = user.role === "ADMIN";
-  if (!isOwner && !isOrganizer && !isAdmin) {
-    throw new AppError_default(status15.FORBIDDEN, "Not authorized");
+  const isSuperAdmin = user.role === "SUPERADMIN";
+  if (!isOwner && !isOrganizer && !isAdmin && !isSuperAdmin) {
+    throw new AppError_default(status16.FORBIDDEN, "You are not authorized to delete this review");
   }
   return prisma.review.delete({
     where: { id: reviewId }
@@ -2674,17 +2769,14 @@ var getMyReviews = async (user) => {
 };
 var getOrganizerEventReviewsByEventId = async (user, eventId) => {
   try {
-    if (!user?.userId) {
-      throw new AppError_default(status15.UNAUTHORIZED, "Unauthorized access");
-    }
     const event = await prisma.event.findUnique({
       where: { id: eventId }
     });
     if (!event) {
-      throw new AppError_default(status15.NOT_FOUND, "Event not found");
+      throw new AppError_default(status16.NOT_FOUND, "Event not found");
     }
     if (event.organizerId !== user.userId) {
-      throw new AppError_default(status15.FORBIDDEN, "You are not the organizer of this event");
+      throw new AppError_default(status16.FORBIDDEN, "You are not the organizer of this event");
     }
     const reviews = await prisma.review.findMany({
       where: { eventId },
@@ -2699,7 +2791,7 @@ var getOrganizerEventReviewsByEventId = async (user, eventId) => {
   } catch (error) {
     if (error instanceof AppError_default) throw error;
     throw new AppError_default(
-      status15.INTERNAL_SERVER_ERROR,
+      status16.INTERNAL_SERVER_ERROR,
       "Failed to fetch event reviews"
     );
   }
@@ -2716,9 +2808,12 @@ var ReviewService = {
 // src/app/module/review/review.controller.ts
 var createReview2 = catchAsync(async (req, res) => {
   const user = req.user;
+  if (user.role !== Role.USER) {
+    throw new AppError_default(status17.FORBIDDEN, "Only users can create reviews");
+  }
   const result = await ReviewService.createReview(user, req.body);
   sendResponse(res, {
-    httpStatusCode: status16.CREATED,
+    httpStatusCode: status17.CREATED,
     success: true,
     message: "Review created",
     data: result
@@ -2729,7 +2824,7 @@ var updateReview2 = catchAsync(async (req, res) => {
   const { id } = req.params;
   const result = await ReviewService.updateReview(user, id, req.body);
   sendResponse(res, {
-    httpStatusCode: status16.OK,
+    httpStatusCode: status17.OK,
     success: true,
     message: "Review updated",
     data: result
@@ -2740,7 +2835,7 @@ var deleteReview2 = catchAsync(async (req, res) => {
   const { id } = req.params;
   const result = await ReviewService.deleteReview(user, id);
   sendResponse(res, {
-    httpStatusCode: status16.OK,
+    httpStatusCode: status17.OK,
     success: true,
     message: "Review deleted",
     data: result
@@ -2750,7 +2845,7 @@ var getEventReviews2 = catchAsync(async (req, res) => {
   const { eventId } = req.params;
   const result = await ReviewService.getEventReviews(eventId);
   sendResponse(res, {
-    httpStatusCode: status16.OK,
+    httpStatusCode: status17.OK,
     success: true,
     message: "Event reviews fetched",
     data: result
@@ -2760,7 +2855,7 @@ var getMyReviews2 = catchAsync(async (req, res) => {
   const user = req.user;
   const result = await ReviewService.getMyReviews(user);
   sendResponse(res, {
-    httpStatusCode: status16.OK,
+    httpStatusCode: status17.OK,
     success: true,
     message: "My reviews fetched",
     data: result
@@ -2775,7 +2870,7 @@ var getOrganizerEventReviewsByEventId2 = catchAsync(
       eventId
     );
     sendResponse(res, {
-      httpStatusCode: status16.OK,
+      httpStatusCode: status17.OK,
       success: true,
       message: "Event reviews fetched",
       data: result
@@ -2795,22 +2890,22 @@ var ReviewController = {
 var router5 = Router5();
 router5.post(
   "/",
-  checkAuth(Role.USER, Role.ADMIN),
+  checkAuth(Role.USER, Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
   ReviewController.createReview
 );
 router5.patch(
   "/:id",
-  checkAuth(Role.USER, Role.ADMIN),
+  checkAuth(Role.USER, Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
   ReviewController.updateReview
 );
 router5.delete(
   "/:id",
-  checkAuth(Role.USER, Role.ADMIN),
+  checkAuth(Role.USER, Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
   ReviewController.deleteReview
 );
 router5.get(
   "/my",
-  checkAuth(Role.USER, Role.ADMIN),
+  checkAuth(Role.USER, Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
   ReviewController.getMyReviews
 );
 router5.get(
@@ -2819,7 +2914,7 @@ router5.get(
 );
 router5.get(
   "/organizer/events/:eventId",
-  checkAuth(Role.USER, Role.ADMIN),
+  checkAuth(Role.ORGANIZER),
   ReviewController.getOrganizerEventReviewsByEventId
 );
 var ReviewRoutes = router5;
@@ -2828,10 +2923,10 @@ var ReviewRoutes = router5;
 import { Router as Router6 } from "express";
 
 // src/app/module/payment/payment.controller.ts
-import status20 from "http-status";
+import status21 from "http-status";
 
 // src/app/module/payment/payment.service.ts
-import status19 from "http-status";
+import status20 from "http-status";
 import { v4 as uuidv4 } from "uuid";
 
 // src/app/config/stripe.config.ts
@@ -2840,7 +2935,7 @@ var stripe = new Stripe(envVars.STRIPE.STRIPE_SECRET_KEY);
 
 // src/app/utils/email.ts
 import ejs from "ejs";
-import status17 from "http-status";
+import status18 from "http-status";
 import nodemailer from "nodemailer";
 import path2 from "path";
 var transporter = nodemailer.createTransport({
@@ -2870,7 +2965,7 @@ var sendEmail = async ({ subject, templateData, templateName, to, attachments })
     console.log(`Email sent to ${to} : ${info.messageId}`);
   } catch (error) {
     console.log("Email Sending Error", error.message);
-    throw new AppError_default(status17.INTERNAL_SERVER_ERROR, "Failed to send email");
+    throw new AppError_default(status18.INTERNAL_SERVER_ERROR, "Failed to send email");
   }
 };
 
@@ -2916,7 +3011,7 @@ var generateEventInvoicePdf = async (data) => {
 
 // src/app/config/cloudinary.config.ts
 import { v2 as cloudinary } from "cloudinary";
-import status18 from "http-status";
+import status19 from "http-status";
 cloudinary.config({
   cloud_name: envVars.CLOUDINARY.CLOUDINARY_CLOUD_NAME,
   api_key: envVars.CLOUDINARY.CLOUDINARY_API_KEY,
@@ -2924,7 +3019,7 @@ cloudinary.config({
 });
 var uploadFileToCloudinary = async (buffer, fileName) => {
   if (!buffer || !fileName) {
-    throw new AppError_default(status18.BAD_REQUEST, "File buffer and file name are required for upload");
+    throw new AppError_default(status19.BAD_REQUEST, "File buffer and file name are required for upload");
   }
   const extension = fileName.split(".").pop()?.toLocaleLowerCase();
   const fileNameWithoutExtension = fileName.split(".").slice(0, -1).join(".").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9\-]/g, "");
@@ -2939,7 +3034,7 @@ var uploadFileToCloudinary = async (buffer, fileName) => {
       },
       (error, result) => {
         if (error) {
-          return reject(new AppError_default(status18.INTERNAL_SERVER_ERROR, "Failed to upload file to Cloudinary"));
+          return reject(new AppError_default(status19.INTERNAL_SERVER_ERROR, "Failed to upload file to Cloudinary"));
         }
         resolve(result);
       }
@@ -2961,7 +3056,7 @@ var deleteFileFromCloudinary = async (url) => {
     }
   } catch (error) {
     console.error("Error deleting file from Cloudinary:", error);
-    throw new AppError_default(status18.INTERNAL_SERVER_ERROR, "Failed to delete file from Cloudinary");
+    throw new AppError_default(status19.INTERNAL_SERVER_ERROR, "Failed to delete file from Cloudinary");
   }
 };
 var cloudinaryUpload = cloudinary;
@@ -2990,11 +3085,8 @@ var createStripeSession = async (paymentId, amount) => {
   return session;
 };
 var initiatePayment = async (user, payload) => {
-  if (user.role === "ADMIN") {
-    throw new AppError_default(status19.FORBIDDEN, "Admins cannot join events");
-  }
   if (!payload.eventId && !payload.invitationId) {
-    throw new AppError_default(status19.BAD_REQUEST, "Invalid payment target");
+    throw new AppError_default(status20.BAD_REQUEST, "Invalid payment target");
   }
   let amount = 0;
   let participationId;
@@ -3009,7 +3101,7 @@ var initiatePayment = async (user, payload) => {
     });
     if (existingParticipation?.status === ParticipationStatus.APPROVED) {
       throw new AppError_default(
-        status19.BAD_REQUEST,
+        status20.BAD_REQUEST,
         "You already joined this event"
       );
     }
@@ -3020,7 +3112,7 @@ var initiatePayment = async (user, payload) => {
     });
     if (invitation?.status === InvitationStatus.ACCEPTED) {
       throw new AppError_default(
-        status19.BAD_REQUEST,
+        status20.BAD_REQUEST,
         "Invitation already accepted"
       );
     }
@@ -3040,7 +3132,7 @@ var initiatePayment = async (user, payload) => {
     }
   });
   if (successPayment) {
-    throw new AppError_default(status19.BAD_REQUEST, "Payment already completed");
+    throw new AppError_default(status20.BAD_REQUEST, "Payment already completed");
   }
   const existingPendingPayment = await prisma.payment.findFirst({
     where: {
@@ -3075,7 +3167,7 @@ var initiatePayment = async (user, payload) => {
     });
     if (event.organizerId === user.userId) {
       throw new AppError_default(
-        status19.BAD_REQUEST,
+        status20.BAD_REQUEST,
         "Organizer cannot join own event"
       );
     }
@@ -3125,7 +3217,7 @@ var initiatePayment = async (user, payload) => {
       include: { event: true }
     });
     if (invitation.userId !== user.userId) {
-      throw new AppError_default(status19.FORBIDDEN, "Not your invitation");
+      throw new AppError_default(status20.FORBIDDEN, "Not your invitation");
     }
     if (invitation.event.fee === 0) {
       await prisma.$transaction(async (tx) => {
@@ -3238,6 +3330,21 @@ var handleStripeWebhookEvent = async (event) => {
             paymentGatewayData: session
           }
         });
+        await AuditLogService.logAction(
+          AuditAction.PAYMENT,
+          "payment",
+          paymentId,
+          payment.userId,
+          "Payment successful completed."
+        );
+        await NotificationService.sendNotification(
+          payment.userId,
+          "Payment Success",
+          "Your recent ticket purchase was successfully verified.",
+          NotificationType.SUCCESS,
+          eventData.id,
+          paymentId
+        );
         try {
           pdfBuffer = await generateEventInvoicePdf({
             invoiceId: payment.id,
@@ -3366,7 +3473,7 @@ var handleStripeWebhookEvent = async (event) => {
 };
 var getMyPayments = async (user, query) => {
   if (!user?.userId) {
-    throw new AppError_default(status19.UNAUTHORIZED, "Unauthorized");
+    throw new AppError_default(status20.UNAUTHORIZED, "Unauthorized");
   }
   const queryBuilder = new QueryBuilder(
     prisma.payment,
@@ -3389,9 +3496,6 @@ var getMyPayments = async (user, query) => {
   return result;
 };
 var getOrganizerPayments = async (user, query) => {
-  if (!user?.userId) {
-    throw new AppError_default(status19.UNAUTHORIZED, "Unauthorized");
-  }
   const queryBuilder = new QueryBuilder(
     prisma.payment,
     query
@@ -3428,10 +3532,7 @@ var getOrganizerPayments = async (user, query) => {
   }).sort().paginate().execute();
   return result;
 };
-var getAllPayments = async (user, query) => {
-  if (user.role !== "ADMIN") {
-    throw new AppError_default(status19.UNAUTHORIZED, "Unauthorized access");
-  }
+var getAllPayments = async (query) => {
   const queryBuilder = new QueryBuilder(
     prisma.payment,
     query
@@ -3465,7 +3566,7 @@ var initiatePayment2 = catchAsync(async (req, res) => {
   const result = await PaymentService.initiatePayment(user, req.body);
   sendResponse(res, {
     success: true,
-    httpStatusCode: status20.OK,
+    httpStatusCode: status21.OK,
     message: "Payment session created",
     data: result
   });
@@ -3482,7 +3583,7 @@ var handleStripeWebhookEvent2 = catchAsync(
     const result = await PaymentService.handleStripeWebhookEvent(event);
     sendResponse(res, {
       success: true,
-      httpStatusCode: status20.OK,
+      httpStatusCode: status21.OK,
       message: "Webhook processed",
       data: result
     });
@@ -3493,7 +3594,7 @@ var getMyPayments2 = catchAsync(async (req, res) => {
   const query = req.query;
   const result = await PaymentService.getMyPayments(user, query);
   sendResponse(res, {
-    httpStatusCode: status20.OK,
+    httpStatusCode: status21.OK,
     success: true,
     message: "My payments fetched",
     data: result
@@ -3504,18 +3605,17 @@ var getOrganizerPayments2 = catchAsync(async (req, res) => {
   const query = req.query;
   const result = await PaymentService.getOrganizerPayments(user, query);
   sendResponse(res, {
-    httpStatusCode: status20.OK,
+    httpStatusCode: status21.OK,
     success: true,
     message: "Organizer payments fetched",
     data: result
   });
 });
 var getAllPayments2 = catchAsync(async (req, res) => {
-  const user = req.user;
   const query = req.query;
-  const result = await PaymentService.getAllPayments(user, query);
+  const result = await PaymentService.getAllPayments(query);
   sendResponse(res, {
-    httpStatusCode: status20.OK,
+    httpStatusCode: status21.OK,
     success: true,
     message: "All payments fetched",
     data: result
@@ -3538,12 +3638,12 @@ router6.post(
 );
 router6.get(
   "/my",
-  checkAuth(Role.USER, Role.ADMIN, Role.SUPERADMIN),
+  checkAuth(Role.USER, Role.ADMIN, Role.SUPERADMIN, Role.ORGANIZER),
   PaymentController.getMyPayments
 );
 router6.get(
   "/organizer",
-  checkAuth(Role.ADMIN, Role.SUPERADMIN, Role.ORGANIZER),
+  checkAuth(Role.ORGANIZER),
   PaymentController.getOrganizerPayments
 );
 router6.get(
@@ -3557,13 +3657,13 @@ var PaymentRoutes = router6;
 import { Router as Router7 } from "express";
 
 // src/app/module/file/file.controller.ts
-import status22 from "http-status";
+import status23 from "http-status";
 
 // src/app/module/file/file.service.ts
-import status21 from "http-status";
+import status22 from "http-status";
 var uploadImage = async (files) => {
   if (!files || files.length === 0) {
-    throw new AppError_default(status21.BAD_REQUEST, "No file uploaded");
+    throw new AppError_default(status22.BAD_REQUEST, "No file uploaded");
   }
   if (files.length === 1) {
     return {
@@ -3576,7 +3676,7 @@ var uploadImage = async (files) => {
 };
 var deleteImage = async (urls) => {
   if (!urls) {
-    throw new AppError_default(status21.BAD_REQUEST, "Image URL is required");
+    throw new AppError_default(status22.BAD_REQUEST, "Image URL is required");
   }
   if (Array.isArray(urls)) {
     await Promise.all(
@@ -3596,11 +3696,11 @@ var FileService = {
 var uploadImage2 = catchAsync(async (req, res) => {
   const files = req.files;
   if (files?.length > 10) {
-    throw new AppError_default(status22.BAD_REQUEST, "Maximum 10 images are allowed");
+    throw new AppError_default(status23.BAD_REQUEST, "Maximum 10 images are allowed");
   }
   const result = await FileService.uploadImage(files);
   sendResponse(res, {
-    httpStatusCode: status22.OK,
+    httpStatusCode: status23.OK,
     success: true,
     message: "Image uploaded successfully",
     data: result
@@ -3610,7 +3710,7 @@ var deleteImage2 = catchAsync(async (req, res) => {
   const { url } = req.body;
   const result = await FileService.deleteImage(url);
   sendResponse(res, {
-    httpStatusCode: status22.OK,
+    httpStatusCode: status23.OK,
     success: true,
     message: "Image deleted successfully",
     data: result
@@ -3663,81 +3763,6 @@ import status25 from "http-status";
 
 // src/app/module/admin/admin.service.ts
 import status24 from "http-status";
-
-// src/app/module/audit/audit.service.ts
-var AuditLogService = {
-  logAction: async (action, entityType, entityId = null, actorId = null, description = null, metadata = null, req) => {
-    try {
-      const ipAddress = req?.ip || req?.headers?.["x-forwarded-for"] || null;
-      const userAgent = req?.headers?.["user-agent"] || null;
-      await prisma.auditLog.create({
-        data: {
-          action,
-          entityType,
-          entityId,
-          description,
-          metadata: metadata ? metadata : void 0,
-          actorId,
-          ipAddress: typeof ipAddress === "string" ? ipAddress : void 0,
-          userAgent
-        }
-      });
-    } catch (error) {
-      console.error("Failed to log audit action:", error);
-    }
-  }
-};
-
-// src/app/module/notification/notification.service.ts
-import status23 from "http-status";
-var NotificationService = {
-  sendNotification: async (userId, title, message, type = NotificationType.INFO, eventId, paymentId, metadata) => {
-    try {
-      await prisma.notification.create({
-        data: {
-          userId,
-          title,
-          message,
-          type,
-          eventId,
-          paymentId,
-          metadata: metadata ? metadata : void 0
-        }
-      });
-    } catch (error) {
-      console.error("Failed to send notification:", error);
-    }
-  },
-  getMyNotifications: async (userId) => {
-    return prisma.notification.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" }
-    });
-  },
-  markAsRead: async (userId, notificationId) => {
-    const notification = await prisma.notification.findUnique({
-      where: { id: notificationId }
-    });
-    if (!notification) {
-      throw new AppError_default(status23.NOT_FOUND, "Notification not found");
-    }
-    if (notification.userId !== userId) {
-      throw new AppError_default(status23.FORBIDDEN, "Unauthorized");
-    }
-    return prisma.notification.update({
-      where: { id: notificationId },
-      data: { isRead: true }
-    });
-  },
-  markAllAsRead: async (userId) => {
-    return prisma.notification.updateMany({
-      where: { userId, isRead: false },
-      data: { isRead: true }
-    });
-  }
-};
-
-// src/app/module/admin/admin.service.ts
 var roleHierarchy = {
   [Role.SUPERADMIN]: 4,
   [Role.ADMIN]: 3,
@@ -3754,11 +3779,15 @@ var assertHigherRole = (actorRole, targetRole) => {
 };
 var getAllUsers = async (user, query) => {
   const queryBuilder = new QueryBuilder(prisma.user, query);
-  return queryBuilder.where({ isDeleted: false, role: Role.USER }).sort().paginate().execute();
+  return queryBuilder.where({
+    role: {
+      in: [Role.USER, Role.ORGANIZER]
+    }
+  }).sort().paginate().execute();
 };
 var getAllAdmins = async (user, query) => {
   const queryBuilder = new QueryBuilder(prisma.user, query);
-  return queryBuilder.where({ isDeleted: false, role: Role.ADMIN }).sort().paginate().execute();
+  return queryBuilder.where({ role: Role.ADMIN }).sort().paginate().execute();
 };
 var getSingleUser = async (id) => {
   const user = await prisma.user.findUnique({ where: { id } });
@@ -3768,10 +3797,15 @@ var getSingleUser = async (id) => {
   return user;
 };
 var createAdmin = async (payload) => {
+  if (!["ADMIN", "SUPERADMIN"].includes(payload.role)) {
+    throw new AppError_default(status24.BAD_REQUEST, "Invalid role");
+  }
   const data = await auth.api.signUpEmail({
-    body: { ...payload, role: Role.ADMIN }
+    body: payload
   });
-  if (!data?.user) throw new AppError_default(status24.BAD_REQUEST, "Failed to create admin");
+  if (!data?.user) {
+    throw new AppError_default(status24.BAD_REQUEST, "Failed to create user");
+  }
   return data.user;
 };
 var updateUserStatus = async (targetId, newStatus, actor) => {
@@ -3820,12 +3854,34 @@ var updateUserRole = async (targetId, newRole, actor) => {
   if (actor.userId === targetId) {
     throw new AppError_default(status24.BAD_REQUEST, "You cannot change your own role");
   }
-  const targetUser = await prisma.user.findUnique({ where: { id: targetId } });
+  const targetUser = await prisma.user.findUnique({
+    where: { id: targetId }
+  });
   if (!targetUser || targetUser.isDeleted) {
     throw new AppError_default(status24.NOT_FOUND, "User not found");
   }
   assertHigherRole(actor.role, targetUser.role);
-  return prisma.user.update({ where: { id: targetId }, data: { role: newRole } });
+  if (targetUser.role === newRole) {
+    throw new AppError_default(status24.BAD_REQUEST, "User already has this role");
+  }
+  const updatedUser = await prisma.user.update({
+    where: { id: targetId },
+    data: { role: newRole }
+  });
+  await AuditLogService.logAction(
+    AuditAction.UPDATE,
+    "user",
+    targetId,
+    actor.userId,
+    `Role changed from ${targetUser.role} to ${newRole}`
+  );
+  await NotificationService.sendNotification(
+    targetId,
+    "Role Updated",
+    `Your role has been updated from ${targetUser.role} to ${newRole}.`,
+    NotificationType.INFO
+  );
+  return updatedUser;
 };
 var AdminService = {
   getAllUsers,
@@ -4286,11 +4342,57 @@ var getUserStats = async (actor) => {
     }
   };
 };
+var getPublicStats = async () => {
+  const now = /* @__PURE__ */ new Date();
+  const [
+    totalActiveUsers,
+    totalEventsDone,
+    totalTicketsCreated,
+    totalOrganizers,
+    totalParticipants
+  ] = await Promise.all([
+    // Active users
+    prisma.user.count({
+      where: {
+        status: "ACTIVE",
+        isDeleted: false
+      }
+    }),
+    // Past events
+    prisma.event.count({
+      where: {
+        dateTime: {
+          lt: now
+        }
+      }
+    }),
+    // Tickets
+    prisma.ticket.count(),
+    prisma.user.count({
+      where: {
+        events: {
+          some: {}
+        },
+        isDeleted: false
+      }
+    }),
+    // Participants
+    prisma.participation.count()
+  ]);
+  return {
+    totalActiveUsers,
+    totalEventsDone,
+    totalTicketsCreated,
+    totalOrganizers,
+    totalParticipants
+  };
+};
 var StatService = {
   getSuperAdminStats,
   getAdminStats,
   getOrganizerStats,
-  getUserStats
+  getUserStats,
+  getPublicStats
 };
 
 // src/app/module/stat/stat.controller.ts
@@ -4310,11 +4412,21 @@ var getUserStats2 = catchAsync(async (req, res) => {
   const result = await StatService.getUserStats(req.user);
   sendResponse(res, { httpStatusCode: status26.OK, success: true, message: "User stats fetched", data: result });
 });
+var getPublicStats2 = catchAsync(async (req, res) => {
+  const result = await StatService.getPublicStats();
+  sendResponse(res, {
+    httpStatusCode: status26.OK,
+    success: true,
+    message: "User stats fetched",
+    data: result
+  });
+});
 var StatController = {
   getSuperAdminStats: getSuperAdminStats2,
   getAdminStats: getAdminStats2,
   getOrganizerStats: getOrganizerStats2,
-  getUserStats: getUserStats2
+  getUserStats: getUserStats2,
+  getPublicStats: getPublicStats2
 };
 
 // src/app/module/stat/stat.route.ts
@@ -4323,6 +4435,7 @@ router9.get("/superadmin", checkAuth(Role.SUPERADMIN), StatController.getSuperAd
 router9.get("/admin", checkAuth(Role.ADMIN, Role.SUPERADMIN), StatController.getAdminStats);
 router9.get("/organizer", checkAuth(Role.ORGANIZER, Role.ADMIN, Role.SUPERADMIN), StatController.getOrganizerStats);
 router9.get("/user", checkAuth(Role.USER, Role.ORGANIZER, Role.ADMIN, Role.SUPERADMIN), StatController.getUserStats);
+router9.get("/public", StatController.getPublicStats);
 var StatRoutes = router9;
 
 // src/app/module/profile/profile.route.ts
@@ -4383,8 +4496,8 @@ var ProfileController = {
 
 // src/app/module/profile/profile.route.ts
 var router10 = Router10();
-router10.get("/me", checkAuth(Role.USER, Role.ADMIN), ProfileController.getMyProfile);
-router10.patch("/me", checkAuth(Role.USER, Role.ADMIN), ProfileController.updateProfile);
+router10.get("/me", checkAuth(Role.USER, Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN), ProfileController.getMyProfile);
+router10.patch("/me", checkAuth(Role.USER, Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN), ProfileController.updateProfile);
 var ProfileRoutes = router10;
 
 // src/app/module/category/category.route.ts
@@ -4501,9 +4614,9 @@ var CategoryController = {
 var router11 = Router11();
 router11.get("/", CategoryController.getAllCategories);
 router11.get("/:id", CategoryController.getSingleCategory);
-router11.post("/", checkAuth(Role.ADMIN), CategoryController.createCategory);
-router11.patch("/:id", checkAuth(Role.ADMIN), CategoryController.updateCategory);
-router11.delete("/:id", checkAuth(Role.ADMIN), CategoryController.deleteCategory);
+router11.post("/", checkAuth(Role.ADMIN, Role.SUPERADMIN), CategoryController.createCategory);
+router11.patch("/:id", checkAuth(Role.ADMIN, Role.SUPERADMIN), CategoryController.updateCategory);
+router11.delete("/:id", checkAuth(Role.ADMIN, Role.SUPERADMIN), CategoryController.deleteCategory);
 var CategoryRoutes = router11;
 
 // src/app/module/banner/banner.route.ts
@@ -4672,109 +4785,31 @@ var router12 = Router12();
 router12.get("/", BannerController.getAllBanners);
 router12.get("/active", BannerController.getActiveBanners);
 router12.get("/:id", BannerController.getBannerById);
-router12.post("/", checkAuth(Role.ADMIN), BannerController.createBanner);
-router12.patch("/:id", checkAuth(Role.ADMIN), BannerController.updateBanner);
-router12.delete("/:id", checkAuth(Role.ADMIN), BannerController.deleteBanner);
+router12.post("/", checkAuth(Role.ADMIN, Role.SUPERADMIN), BannerController.createBanner);
+router12.patch("/:id", checkAuth(Role.ADMIN, Role.SUPERADMIN), BannerController.updateBanner);
+router12.delete("/:id", checkAuth(Role.ADMIN, Role.SUPERADMIN), BannerController.deleteBanner);
 router12.patch(
   "/:id/status",
-  checkAuth(Role.ADMIN),
+  checkAuth(Role.ADMIN, Role.SUPERADMIN),
   BannerController.updateBannerStatus
 );
 var BannerRoutes = router12;
 
-// src/app/module/public/public.route.ts
+// src/app/module/ticket/ticket.route.ts
 import { Router as Router13 } from "express";
 
-// src/app/module/public/public.controller.ts
-import status33 from "http-status";
-
-// src/app/module/public/public.service.ts
-var getStats = async () => {
-  const now = /* @__PURE__ */ new Date();
-  const [
-    totalActiveUsers,
-    totalEventsDone,
-    totalTicketsCreated,
-    totalOrganizers,
-    totalParticipants
-  ] = await Promise.all([
-    // Active users
-    prisma.user.count({
-      where: {
-        status: "ACTIVE",
-        isDeleted: false
-      }
-    }),
-    // Past events
-    prisma.event.count({
-      where: {
-        dateTime: {
-          lt: now
-        }
-      }
-    }),
-    // Tickets
-    prisma.ticket.count(),
-    prisma.user.count({
-      where: {
-        events: {
-          some: {}
-        },
-        isDeleted: false
-      }
-    }),
-    // Participants
-    prisma.participation.count()
-  ]);
-  return {
-    totalActiveUsers,
-    totalEventsDone,
-    totalTicketsCreated,
-    totalOrganizers,
-    totalParticipants
-  };
-};
-var PublicService = {
-  getStats
-};
-
-// src/app/module/public/public.controller.ts
-var getStats2 = catchAsync(async (req, res) => {
-  const result = await PublicService.getStats();
-  sendResponse(res, {
-    httpStatusCode: status33.OK,
-    success: true,
-    message: "User stats fetched",
-    data: result
-  });
-});
-var PublicController = {
-  getStats: getStats2
-};
-
-// src/app/module/public/public.route.ts
-var router13 = Router13();
-router13.get("/stats", PublicController.getStats);
-var PublicRoutes = router13;
-
-// src/app/module/ticket/ticket.route.ts
-import { Router as Router14 } from "express";
-
 // src/app/module/ticket/ticket.controller.ts
-import status35 from "http-status";
+import status34 from "http-status";
 
 // src/app/module/ticket/ticket.service.ts
-import status34 from "http-status";
-var getUserTickets = async (userId, query) => {
-  if (!userId) {
-    throw new AppError_default(status34.BAD_REQUEST, "UserId is required");
-  }
+import status33 from "http-status";
+var getUserTickets = async (user, query) => {
   const queryBuilder = new QueryBuilder(
     prisma.ticket,
     query
   );
   const result = await queryBuilder.where({
-    userId
+    userId: user.userId
   }).include({
     event: true
   }).sort().paginate().execute();
@@ -4792,12 +4827,12 @@ var checkIn = async (qrCode, organizerId) => {
     where: { qrCode },
     include: { event: true, user: true }
   });
-  if (!ticket) throw new AppError_default(status34.BAD_REQUEST, "Invalid ticket");
+  if (!ticket) throw new AppError_default(status33.BAD_REQUEST, "Invalid ticket");
   if (ticket.status === "USED") {
-    throw new AppError_default(status34.BAD_REQUEST, "Ticket already used");
+    throw new AppError_default(status33.BAD_REQUEST, "Ticket already used");
   }
   if (ticket.event.organizerId !== organizerId) {
-    throw new AppError_default(status34.FORBIDDEN, "Unauthorized");
+    throw new AppError_default(status33.FORBIDDEN, "Unauthorized");
   }
   await prisma.ticket.update({
     where: { id: ticket.id },
@@ -4826,9 +4861,9 @@ var TicketService = {
 var getMyTickets = catchAsync(async (req, res) => {
   const user = req.user;
   const query = req.query;
-  const result = await TicketService.getUserTickets(user.userId, query);
+  const result = await TicketService.getUserTickets(user, query);
   sendResponse(res, {
-    httpStatusCode: status35.OK,
+    httpStatusCode: status34.OK,
     success: true,
     message: "My tickets fetched",
     data: result
@@ -4838,7 +4873,7 @@ var getEventTickets2 = catchAsync(async (req, res) => {
   const { eventId } = req.params;
   const result = await TicketService.getEventTickets(eventId);
   sendResponse(res, {
-    httpStatusCode: status35.OK,
+    httpStatusCode: status34.OK,
     success: true,
     message: "Event tickets fetched",
     data: result
@@ -4849,7 +4884,7 @@ var checkInTicket = catchAsync(async (req, res) => {
   const organizerId = req.user.userId;
   const result = await TicketService.checkIn(qrCode, organizerId);
   sendResponse(res, {
-    httpStatusCode: status35.OK,
+    httpStatusCode: status34.OK,
     success: true,
     message: "Ticket checked in",
     data: result
@@ -4862,73 +4897,58 @@ var TicketController = {
 };
 
 // src/app/module/ticket/ticket.route.ts
-var router14 = Router14();
-router14.get(
+var router13 = Router13();
+router13.get(
   "/my",
-  checkAuth(Role.USER, Role.ADMIN),
+  checkAuth(Role.USER, Role.ADMIN, Role.ORGANIZER, Role.SUPERADMIN),
   TicketController.getMyTickets
 );
-router14.get(
+router13.get(
   "/event/:eventId",
-  checkAuth(Role.ADMIN, Role.USER),
+  checkAuth(Role.ORGANIZER),
   TicketController.getEventTickets
 );
-router14.post(
+router13.post(
   "/check-in",
-  checkAuth(Role.ADMIN, Role.USER),
+  checkAuth(Role.ORGANIZER),
   TicketController.checkInTicket
 );
-var TicketRoutes = router14;
+var TicketRoutes = router13;
 
 // src/app/module/audit/audit.route.ts
-import { Router as Router15 } from "express";
+import { Router as Router14 } from "express";
 
 // src/app/module/audit/audit.controller.ts
-import status36 from "http-status";
-var getAllLogs = catchAsync(async (req, res) => {
-  const logs = await prisma.auditLog.findMany({
-    orderBy: { createdAt: "desc" },
-    include: {
-      actor: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true
-        }
-      }
-    }
-  });
+import status35 from "http-status";
+var getAllLogs2 = catchAsync(async (req, res) => {
+  const query = req.query;
+  console.log(query);
+  const result = await AuditService.getAllLogs(query);
   sendResponse(res, {
-    httpStatusCode: status36.OK,
+    httpStatusCode: status35.OK,
     success: true,
     message: "Audit logs fetched successfully",
-    data: {
-      meta: {
-        total: logs.length
-      },
-      data: logs
-    }
+    data: result
   });
 });
 var AuditController = {
-  getAllLogs
+  getAllLogs: getAllLogs2
 };
 
 // src/app/module/audit/audit.route.ts
-var router15 = Router15();
-router15.get("/", checkAuth(Role.SUPERADMIN), AuditController.getAllLogs);
-var AuditRoutes = router15;
+var router14 = Router14();
+router14.get("/", checkAuth(Role.SUPERADMIN), AuditController.getAllLogs);
+var AuditRoutes = router14;
 
 // src/app/module/notification/notification.route.ts
-import { Router as Router16 } from "express";
+import { Router as Router15 } from "express";
 
 // src/app/module/notification/notification.controller.ts
-import status37 from "http-status";
+import status36 from "http-status";
 var getMyNotifications = catchAsync(async (req, res) => {
   const result = await NotificationService.getMyNotifications(req.user.userId);
   sendResponse(res, {
-    httpStatusCode: status37.OK,
+    httpStatusCode: status36.OK,
     success: true,
     message: "Notifications fetched successfully",
     data: result
@@ -4938,7 +4958,7 @@ var markAsRead = catchAsync(async (req, res) => {
   const { id } = req.params;
   const result = await NotificationService.markAsRead(req.user.userId, id);
   sendResponse(res, {
-    httpStatusCode: status37.OK,
+    httpStatusCode: status36.OK,
     success: true,
     message: "Notification marked as read",
     data: result
@@ -4947,7 +4967,7 @@ var markAsRead = catchAsync(async (req, res) => {
 var markAllAsRead = catchAsync(async (req, res) => {
   const result = await NotificationService.markAllAsRead(req.user.userId);
   sendResponse(res, {
-    httpStatusCode: status37.OK,
+    httpStatusCode: status36.OK,
     success: true,
     message: "All notifications marked as read",
     data: result
@@ -4960,43 +4980,42 @@ var NotificationController = {
 };
 
 // src/app/module/notification/notification.route.ts
-var router16 = Router16();
-router16.get(
+var router15 = Router15();
+router15.get(
   "/",
   checkAuth(Role.USER, Role.ORGANIZER, Role.ADMIN, Role.SUPERADMIN),
   NotificationController.getMyNotifications
 );
-router16.patch(
+router15.patch(
   "/mark-all-read",
   checkAuth(Role.USER, Role.ORGANIZER, Role.ADMIN, Role.SUPERADMIN),
   NotificationController.markAllAsRead
 );
-router16.patch(
+router15.patch(
   "/:id/read",
   checkAuth(Role.USER, Role.ORGANIZER, Role.ADMIN, Role.SUPERADMIN),
   NotificationController.markAsRead
 );
-var NotificationRoutes = router16;
+var NotificationRoutes = router15;
 
 // src/app/routes/index.ts
-var router17 = Router17();
-router17.use("/auth", AuthRoutes);
-router17.use("/event", EventRoutes);
-router17.use("/participation", ParticipationRoutes);
-router17.use("/invitation", InvitationRoutes);
-router17.use("/review", ReviewRoutes);
-router17.use("/payment", PaymentRoutes);
-router17.use("/file", FileRoutes);
-router17.use("/admin", AdminRoutes);
-router17.use("/profile", ProfileRoutes);
-router17.use("/category", CategoryRoutes);
-router17.use("/banner", BannerRoutes);
-router17.use("/public", PublicRoutes);
-router17.use("/ticket", TicketRoutes);
-router17.use("/audit", AuditRoutes);
-router17.use("/notification", NotificationRoutes);
-router17.use("/stat", StatRoutes);
-var IndexRoutes = router17;
+var router16 = Router16();
+router16.use("/auth", AuthRoutes);
+router16.use("/event", EventRoutes);
+router16.use("/participation", ParticipationRoutes);
+router16.use("/invitation", InvitationRoutes);
+router16.use("/review", ReviewRoutes);
+router16.use("/payment", PaymentRoutes);
+router16.use("/file", FileRoutes);
+router16.use("/admin", AdminRoutes);
+router16.use("/profile", ProfileRoutes);
+router16.use("/category", CategoryRoutes);
+router16.use("/banner", BannerRoutes);
+router16.use("/ticket", TicketRoutes);
+router16.use("/audit", AuditRoutes);
+router16.use("/notification", NotificationRoutes);
+router16.use("/stat", StatRoutes);
+var IndexRoutes = router16;
 
 // src/app.ts
 import cors from "cors";

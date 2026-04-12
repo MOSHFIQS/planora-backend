@@ -18,8 +18,8 @@ export const seedAdmin = async () => {
 
         const superAdminUser = await auth.api.signUpEmail({
             body:{
-                email : envVars.ADMIN_EMAIL,
-                password : envVars.ADMIN_PASSWORD,
+                email : envVars.SUPER_ADMIN_EMAIL,
+                password : envVars.SUPER_ADMIN_PASSWORD,
                 name : "Admin",
                 role : Role.ADMIN,
                 rememberMe : false,
@@ -41,7 +41,7 @@ export const seedAdmin = async () => {
 
         const admin = await prisma.user.findFirst({
             where : {
-                email : envVars.ADMIN_EMAIL,
+                email : envVars.SUPER_ADMIN_EMAIL,
             }
         })
 
@@ -50,7 +50,7 @@ export const seedAdmin = async () => {
         console.error("Error seeding admin: ", error);
         await prisma.user.delete({
             where : {
-                email : envVars.ADMIN_EMAIL,
+                email : envVars.SUPER_ADMIN_EMAIL,
             }
         })
     }

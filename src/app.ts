@@ -6,6 +6,8 @@ import { IndexRoutes } from "./app/routes";
 import { PaymentController } from "./app/module/payment/payment.controller";
 import cors from "cors";
 import path from "path";
+import { auth } from "./app/lib/auth";
+import { toNodeHandler } from "better-auth/node";
 
 const app: Application = express();
 app.set("view engine", "ejs");
@@ -28,6 +30,8 @@ app.use(cors({
      },
      credentials: true,
 }));
+
+app.use("/api/v1/auth", toNodeHandler(auth));
 
 app.post(
      "/api/v1/payments/webhook",

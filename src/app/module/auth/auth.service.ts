@@ -189,11 +189,97 @@ const getNewToken = async (refreshToken: string, sessionToken: string) => {
           accessToken: newAccessToken,
           refreshToken: newRefreshToken,
           sessionToken: token,
+          user: {
+               id: session.user.id,
+               name: session.user.name,
+               email: session.user.email,
+               image: session.user.image,
+               role: session.user.role,
+               status: session.user.status,
+               isDeleted: session.user.isDeleted,
+               emailVerified: session.user.emailVerified,
+               createdAt: session.user.createdAt,
+               updatedAt: session.user.updatedAt,
+          },
      };
 };
+
+
+
+
+const googleLoginSuccess = async (session: any) => {
+     const user = await prisma.user.findUnique({
+          where: {
+               id: session.user.id,
+          },
+     });
+
+     if (!user) {
+          throw new AppError(status.NOT_FOUND, "User not found in system");
+     }
+
+     if (user.status === UserStatus.SUSPENDED) {
+          throw new AppError(status.FORBIDDEN, "User account is suspended");
+     }
+
+     if (user.isDeleted) {
+          throw new AppError(status.NOT_FOUND, "User account is deleted");
+     }
+
+     await AuditLogService.logAction(
+          AuditAction.LOGIN,
+          user.role,
+          user.id,
+          user.id,
+          "User logged in via Google"
+     );
+
+     const accessToken = tokenUtils.getAccessToken({
+          userId: user.id,
+          role: user.role,
+          name: user.name,
+          email: user.email,
+          status: user.status,
+          isDeleted: user.isDeleted,
+          emailVerified: user.emailVerified,
+     });
+
+     const refreshToken = tokenUtils.getRefreshToken({
+          userId: user.id,
+          role: user.role,
+          name: user.name,
+          email: user.email,
+          status: user.status,
+          isDeleted: user.isDeleted,
+          emailVerified: user.emailVerified,
+     });
+
+     return {
+          accessToken,
+          refreshToken,
+          user: {
+               id: user.id,
+               name: user.name,
+               email: user.email,
+               image: user.image ?? null,
+               role: user.role,
+               status: user.status,
+               isDeleted: user.isDeleted,
+               emailVerified: user.emailVerified,
+               createdAt: user.createdAt,
+               updatedAt: user.updatedAt,
+          },
+     };
+};
+
+
+
+
+
 
 export const AuthService = {
      registerUser,
      loginUser,
      getNewToken,
+     googleLoginSuccess,
 };

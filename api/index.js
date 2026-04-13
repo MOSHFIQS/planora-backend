@@ -1134,29 +1134,28 @@ var auth = betterAuth({
   redirectURLs: {
     signIn: `${envVars.BETTER_AUTH_URL}/api/v1/auth/google/success`
   },
-  trustedOrigins: [envVars.BETTER_AUTH_URL, envVars.FRONTEND_URL],
-  advanced: {
-    useSecureCookies: false,
-    // Set to true in production
-    cookies: {
-      state: {
-        attributes: {
-          sameSite: "none",
-          secure: true,
-          httpOnly: true,
-          path: "/"
-        }
-      },
-      sessionToken: {
-        attributes: {
-          sameSite: "none",
-          secure: true,
-          httpOnly: true,
-          path: "/"
-        }
-      }
-    }
-  }
+  trustedOrigins: [envVars.BETTER_AUTH_URL, envVars.FRONTEND_URL]
+  // advanced: {
+  //      useSecureCookies: false, // Set to true in production
+  //      cookies: {
+  //           state: {
+  //                attributes: {
+  //                     sameSite: "none",
+  //                     secure: true,
+  //                     httpOnly: true,
+  //                     path: "/",
+  //                }
+  //           },
+  //           sessionToken: {
+  //                attributes: {
+  //                     sameSite: "none",
+  //                     secure: true,
+  //                     httpOnly: true,
+  //                     path: "/",
+  //                }
+  //           }
+  //      }
+  // }
 });
 
 // src/app/utils/QueryBuilder.ts
@@ -2024,11 +2023,7 @@ var getNewToken2 = catchAsync(
     tokenUtils.setRefreshTokenCookie(res, newRefreshToken);
     tokenUtils.setBetterAuthSessionCookie(res, sessionToken);
     res.cookie("user", JSON.stringify(user), {
-      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1e3),
-      // 7 days
-      httpOnly: false,
-      secure: true,
-      sameSite: "none"
+      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1e3)
     });
     sendResponse(res, {
       httpStatusCode: status9.OK,

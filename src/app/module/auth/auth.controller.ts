@@ -71,10 +71,7 @@ const getNewToken = catchAsync(
 
         // Update the user cookie for frontend state hydration
         res.cookie("user", JSON.stringify(user), {
-            expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-            httpOnly: false,
-            secure: true,
-            sameSite: "none",
+            expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         });
 
         sendResponse(res, {

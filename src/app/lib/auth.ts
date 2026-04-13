@@ -128,25 +128,25 @@ export const auth = betterAuth({
 
      trustedOrigins: [envVars.BETTER_AUTH_URL, envVars.FRONTEND_URL],
 
-     advanced: {
-          useSecureCookies: false, // Set to true in production
-          cookies: {
-               state: {
-                    attributes: {
-                         sameSite: "none",
-                         secure: true,
-                         httpOnly: true,
-                         path: "/",
-                    }
-               },
-               sessionToken: {
-                    attributes: {
-                         sameSite: "none",
-                         secure: true,
-                         httpOnly: true,
-                         path: "/",
-                    }
-               }
-          }
-     }
+     // advanced: {
+     //      useSecureCookies: false, // Set to true in production
+     //      cookies: {
+     //           state: {
+     //                attributes: {
+     //                     sameSite: "none",
+     //                     secure: true,
+     //                     httpOnly: true,
+     //                     path: "/",
+     //                }
+     //           },
+     //           sessionToken: {
+     //                attributes: {
+     //                     sameSite: "none",
+     //                     secure: true,
+     //                     httpOnly: true,
+     //                     path: "/",
+     //                }
+     //           }
+     //      }
+     // }
 });

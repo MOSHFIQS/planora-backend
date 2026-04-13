@@ -62,4 +62,8 @@ export const NotificationService = {
       data: { isRead: true },
     });
   },
+
+  getUnreadCount: async (userId: string) => {
+    return prisma.notification.count({ where: { userId, isRead: false } })
+  }
 };

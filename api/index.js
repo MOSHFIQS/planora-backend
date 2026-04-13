@@ -3017,6 +3017,9 @@ var NotificationService = {
       where: { userId, isRead: false },
       data: { isRead: true }
     });
+  },
+  getUnreadCount: async (userId) => {
+    return prisma.notification.count({ where: { userId, isRead: false } });
   }
 };
 
@@ -5502,10 +5505,20 @@ var markAllAsRead = catchAsync(async (req, res) => {
     data: result
   });
 });
+var getUnreadCount = catchAsync(async (req, res) => {
+  const count = await NotificationService.getUnreadCount(req.user.userId);
+  sendResponse(res, {
+    httpStatusCode: status36.OK,
+    success: true,
+    message: "Unread count",
+    data: { count }
+  });
+});
 var NotificationController = {
   getMyNotifications,
   markAsRead,
-  markAllAsRead
+  markAllAsRead,
+  getUnreadCount
 };
 
 // src/app/module/notification/notification.route.ts
@@ -5515,6 +5528,7 @@ router15.get(
   checkAuth(Role.USER, Role.ORGANIZER, Role.ADMIN, Role.SUPERADMIN),
   NotificationController.getMyNotifications
 );
+router15.get("/unread-count", checkAuth(Role.USER, Role.ORGANIZER, Role.ADMIN, Role.SUPERADMIN), NotificationController.getUnreadCount);
 router15.patch(
   "/mark-all-read",
   checkAuth(Role.USER, Role.ORGANIZER, Role.ADMIN, Role.SUPERADMIN),

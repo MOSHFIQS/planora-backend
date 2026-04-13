@@ -6,6 +6,8 @@ import { IndexRoutes } from "./app/routes";
 import { PaymentController } from "./app/module/payment/payment.controller";
 import cors from "cors";
 import path from "path";
+import { auth } from "./app/lib/auth";
+import { toNodeHandler } from "better-auth/node";
 
 const app: Application = express();
 app.set("view engine", "ejs");
@@ -16,6 +18,18 @@ app.use(cors({
           const allowedOrigins = [
                process.env.FRONTEND_URL,
                process.env.PROD_CLIENT_URL,
+               "localhost:3000",
+               "localhost:5000",
+               "http://localhost:3000",
+               "http://localhost:5000",
+               "http://localhost:5001",
+               "localhost:5001",
+               "http://localhost:5002",
+               "localhost:5002",
+               "http://localhost:3001",
+               "localhost:3001",
+               "http://localhost:3002",
+               "localhost:3002",
           ];
 
           if (!origin) return callback(null, true);
@@ -28,6 +42,8 @@ app.use(cors({
      },
      credentials: true,
 }));
+
+app.use("/api/auth", toNodeHandler(auth));
 
 app.post(
      "/api/v1/payments/webhook",

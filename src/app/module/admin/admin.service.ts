@@ -89,7 +89,16 @@ const createAdmin = async (payload: {
     throw new AppError(status.BAD_REQUEST, "Failed to create user");
   }
 
-  return data.user;
+  // Update the user to set needPasswordChange and emailVerified
+  const updatedAdmin = await prisma.user.update({
+    where: { id: data.user.id },
+    data: {
+      needPasswordChange: true,
+      emailVerified: true,
+    },
+  });
+
+  return updatedAdmin;
 };
 
 

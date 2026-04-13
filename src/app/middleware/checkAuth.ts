@@ -11,12 +11,13 @@ import { CookieUtils } from "../utils/cookie";
 export const checkAuth = (...authRoles: Role[]) => {
      return async (req: Request, res: Response, next: NextFunction) => {
           try {
-               // console.log("req.cookies",req.cookies);
                //Session Token Verification
                const sessionToken = CookieUtils.getCookie(
                     req,
                     "better-auth.session_token",
                );
+
+               // console.log("sessionToken",sessionToken)
                // console.log("sessionToken", sessionToken);
 
                if (!sessionToken) {
@@ -96,20 +97,7 @@ export const checkAuth = (...authRoles: Role[]) => {
                               email: user.email,
                          };
                     }
-
-                    const accessToken = CookieUtils.getCookie(
-                         req,
-                         "accessToken",
-                    );
-
-                    if (!accessToken) {
-                         throw new AppError(
-                              status.UNAUTHORIZED,
-                              "Unauthorized access! No access token provided.",
-                         );
-                    }
                }
-               // console.log("req.user", req?.user);
 
                //Access Token Verification
                const accessToken = CookieUtils.getCookie(req, "accessToken");
@@ -125,19 +113,24 @@ export const checkAuth = (...authRoles: Role[]) => {
                     accessToken,
                     envVars.ACCESS_TOKEN_SECRET,
                );
-               // console.log("verifiedToken",verifiedToken);
 
-               if (!verifiedToken.success) {
+               if (!verifiedToken.success || !verifiedToken.data) {
                     throw new AppError(
                          status.UNAUTHORIZED,
                          "Unauthorized access! Invalid access token.",
                     );
                }
 
-               if (
-                    authRoles.length > 0 &&
-                    !authRoles.includes(verifiedToken.data!.role as Role)
-               ) {
+               // Fallback to token data if session lookup didn't set req.user
+               if (!req.user) {
+                    req.user = {
+                         userId: verifiedToken.data.userId,
+                         role: verifiedToken.data.role as Role,
+                         email: verifiedToken.data.email,
+                    };
+               }
+
+               if (authRoles.length > 0 && !authRoles.includes(req.user.role)) {
                     throw new AppError(
                          status.FORBIDDEN,
                          "Forbidden access! You do not have permission to access this resource.",
@@ -145,7 +138,7 @@ export const checkAuth = (...authRoles: Role[]) => {
                }
 
                next();
-          } catch (error:any) {
+          } catch (error: any) {
                next(error);
           }
      };

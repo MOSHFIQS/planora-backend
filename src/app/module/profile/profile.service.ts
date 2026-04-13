@@ -8,13 +8,29 @@ const getMyProfile = async (user: IRequestUser) => {
           where: {
                id: user.userId,
           },
+          include: {
+               accounts: {
+                    select: {
+                         providerId: true,
+                         password: true,
+                    },
+               },
+          },
      });
 
      if (!foundUser) {
           throw new AppError(status.NOT_FOUND, "User not found");
      }
 
-     return foundUser;
+     const { accounts, ...rest } = foundUser;
+     const hasPassword = accounts.some(
+          (acc) => acc.password !== null && acc.password !== undefined && acc.password !== ""
+     );
+
+     return {
+          ...rest,
+          hasPassword,
+     };
 };
 
 const updateProfile = async (

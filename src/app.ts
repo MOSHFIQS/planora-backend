@@ -18,6 +18,18 @@ app.use(cors({
           const allowedOrigins = [
                process.env.FRONTEND_URL,
                process.env.PROD_CLIENT_URL,
+               "localhost:3000",
+               "localhost:5000",
+               "http://localhost:3000",
+               "http://localhost:5000",
+               "http://localhost:5001",
+               "localhost:5001",
+               "http://localhost:5002",
+               "localhost:5002",
+               "http://localhost:3001",
+               "localhost:3001",
+               "http://localhost:3002",
+               "localhost:3002",
           ];
 
           if (!origin) return callback(null, true);
@@ -31,7 +43,7 @@ app.use(cors({
      credentials: true,
 }));
 
-app.use("/api/v1/auth", toNodeHandler(auth));
+app.use("/api/auth", toNodeHandler(auth));
 
 app.post(
      "/api/v1/payments/webhook",

@@ -12,3 +12,9 @@ export interface IChangePasswordPayload {
      currentPassword: string;
      newPassword: string;
 }
+
+export interface IRegisterPatientPayload {
+     name: string;
+     email: string;
+     password: string;
+}
